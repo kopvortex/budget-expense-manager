@@ -492,14 +492,75 @@ def bank_account_create(request):
 def bank_account_update(request, pk):
     """Update a bank account"""
     account = get_object_or_404(BankAccount, pk=pk, user=request.user)
+    
     if request.method == 'POST':
+        # Save old values BEFORE form processing (form.save(commit=False) modifies instance in place!)
+        old_opening_balance = account.opening_balance
+        old_balance = account.balance
+        old_setup_date = account.account_setup_date
+        
         form = BankAccountForm(request.POST, instance=account)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Bank account updated successfully!')
+            new_opening_balance = form.cleaned_data.get('opening_balance')
+            
+            # Preserve read-only fields to prevent tampering
+            updated_account = form.save(commit=False)
+            updated_account.balance = old_balance
+            updated_account.account_setup_date = old_setup_date
+            updated_account.opening_balance = new_opening_balance or old_opening_balance
+            
+            # Handle opening balance change
+            opening_balance_changed = (
+                new_opening_balance is not None and 
+                new_opening_balance != old_opening_balance
+            )
+            
+            if opening_balance_changed:
+                # Find and update the opening balance income transaction
+                try:
+                    opening_income = Income.objects.select_related('category').get(
+                        user=request.user,
+                        bank_account=account,
+                        category__name='Opening Balance',
+                        category__category_type='income',
+                        date=old_setup_date
+                    )
+                    
+                    # Save account changes first
+                    updated_account.save(update_fields=[
+                        'name', 'account_type', 'bank_name', 'account_number', 
+                        'is_active', 'opening_balance', 'updated_at'
+                    ])
+                    
+                    # Update income transaction (automatically recalculates balance)
+                    opening_income.amount = new_opening_balance
+                    opening_income.description = f'Opening balance for {updated_account.name}'
+                    opening_income.save()
+                    
+                    messages.success(
+                        request, 
+                        f'Opening balance updated from ${old_opening_balance} to ${new_opening_balance}. '
+                        f'Current balance recalculated.'
+                    )
+                except Income.DoesNotExist:
+                    messages.warning(request, 'Could not find opening balance transaction to update.')
+                    # Still save the account updates
+                    updated_account.save(update_fields=[
+                        'name', 'account_type', 'bank_name', 'account_number', 
+                        'is_active', 'opening_balance', 'updated_at'
+                    ])
+            else:
+                # No opening balance change - just save account updates
+                updated_account.save(update_fields=[
+                    'name', 'account_type', 'bank_name', 'account_number', 
+                    'is_active', 'opening_balance', 'updated_at'
+                ])
+                messages.success(request, 'Bank account updated successfully!')
+            
             return redirect('bank_account_list')
     else:
         form = BankAccountForm(instance=account)
+    
     return render(request, 'budget/bank_account_form.html', {'form': form, 'action': 'Update'})
 
 

@@ -11,12 +11,31 @@
                 <h4 class="mb-0"><i class="bi bi-bank"></i> {{ action }} Bank Account</h4>
             </div>
             <div class="card-body">
+                {% if action == 'Update' %}
+                <div class="alert alert-info mb-3">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>Note:</strong> The current balance and account setup date are read-only. 
+                    The current balance is automatically calculated from your income, expenses, and transfers.
+                </div>
+                <div class="alert alert-warning mb-4">
+                    <i class="bi bi-exclamation-triangle"></i> 
+                    <strong>Opening Balance:</strong> You can modify the opening balance. This will update your initial "Opening Balance" transaction 
+                    and automatically recalculate your current balance. Use this to correct any mistakes in the initial balance.
+                </div>
+                {% else %}
+                <div class="alert alert-info mb-4">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>Tip:</strong> Set the opening balance and account setup date to match your real account. 
+                    This will be your starting point for tracking transactions.
+                </div>
+                {% endif %}
+                
                 <form method="post">
                     {% csrf_token %}
                     {{ form|crispy }}
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-circle"></i> Save Account
+                            <i class="bi bi-check-circle"></i> {% if action == 'Update' %}Update Account{% else %}Create Account{% endif %}
                         </button>
                         <a href="{% url 'bank_account_list' %}" class="btn btn-secondary">
                             <i class="bi bi-x-circle"></i> Cancel
@@ -27,5 +46,38 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Style for read-only fields */
+    input[readonly], input:disabled {
+        background-color: #f8f9fa !important;
+        border: 1px solid #dee2e6 !important;
+        cursor: not-allowed !important;
+    }
+    
+    /* Highlight current balance field */
+    #div_id_balance input:disabled {
+        border: 2px solid #198754 !important;
+        background-color: #d1e7dd !important;
+        font-size: 1.1rem;
+    }
+    
+    /* Highlight opening balance field as editable/warning */
+    #div_id_opening_balance input {
+        font-weight: 600;
+        font-size: 1.05rem;
+    }
+    
+    /* Info alerts styling */
+    .alert-info {
+        border-left: 4px solid #0dcaf0;
+    }
+    
+    .alert-warning {
+        border-left: 4px solid #ffc107;
+    }
+</style>
 {% endblock %}
 

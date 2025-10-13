@@ -54,13 +54,24 @@ class BankAccountForm(forms.ModelForm):
             # Change balance field to show current balance (read-only)
             self.fields['balance'].widget.attrs['readonly'] = True
             self.fields['balance'].widget.attrs['class'] += ' bg-light'
+            self.fields['balance'].widget.attrs['style'] = 'cursor: not-allowed; font-weight: 600; color: #0f5132;'
             self.fields['balance'].label = 'Current Balance'
-            self.fields['balance'].help_text = 'Current balance calculated from transactions (read-only)'
+            self.fields['balance'].help_text = '💰 Automatically calculated from transactions (read-only)'
+            self.fields['balance'].disabled = True  # Prevent value from being submitted
+            
+            # Make opening balance editable with warning styling
+            self.fields['opening_balance'].required = False
+            self.fields['opening_balance'].widget.attrs['readonly'] = False
+            self.fields['opening_balance'].widget.attrs['class'] = 'form-control bg-warning bg-opacity-10'
+            self.fields['opening_balance'].widget.attrs['style'] = 'font-weight: 600; border: 2px solid #ffc107;'
+            self.fields['opening_balance'].help_text = '⚠️ Changing this will update your initial balance transaction and recalculate your current balance'
             
             # Make setup date read-only
             self.fields['account_setup_date'].widget.attrs['readonly'] = True
             self.fields['account_setup_date'].widget.attrs['class'] += ' bg-light'
-            self.fields['account_setup_date'].help_text = 'Account setup date cannot be changed'
+            self.fields['account_setup_date'].widget.attrs['style'] = 'cursor: not-allowed;'
+            self.fields['account_setup_date'].help_text = '📅 Account setup date cannot be changed'
+            self.fields['account_setup_date'].disabled = True  # Prevent value from being submitted
         else:
             # When creating a new account, hide the opening_balance field (it will be auto-populated)
             self.fields.pop('opening_balance')
