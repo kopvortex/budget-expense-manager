@@ -233,9 +233,23 @@ class TransferForm(forms.ModelForm):
         if from_account and to_account and from_account == to_account:
             raise forms.ValidationError("Cannot transfer to the same account.")
         
-        # Check balance
-        if from_account and amount and from_account.balance < amount:
-            raise forms.ValidationError(f"Insufficient balance in {from_account.name}. Available: ${from_account.balance}")
+        # Check balance (for new transfers or when account changes)
+        if from_account and amount:
+            # Refresh balance from database to get current state
+            from_account.refresh_from_db()
+            available_balance = from_account.balance
+            
+            # If editing an existing transfer and the from_account hasn't changed,
+            # add back the old transfer amount to available balance
+            if self.instance and self.instance.pk:
+                if self.instance.from_account == from_account:
+                    available_balance += self.instance.amount
+            
+            if available_balance < amount:
+                raise forms.ValidationError(
+                    f"Insufficient balance in {from_account.name}. "
+                    f"Available: ${available_balance:.2f}"
+                )
         
         return cleaned_data
 

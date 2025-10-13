@@ -43,6 +43,7 @@ urlpatterns = [
     # Transfers
     path('transfers/', views.transfer_list, name='transfer_list'),
     path('transfers/create/', views.transfer_create, name='transfer_create'),
+    path('transfers/<int:pk>/update/', views.transfer_update, name='transfer_update'),
     path('transfers/<int:pk>/delete/', views.transfer_delete, name='transfer_delete'),
     
     # Reports

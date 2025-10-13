@@ -8,18 +8,18 @@
     <div class="col-md-8">
         <div class="card">
             <div class="card-header bg-primary text-white">
-                <h4 class="mb-0"><i class="bi bi-arrow-left-right"></i> Transfer Funds</h4>
+                <h4 class="mb-0"><i class="bi bi-arrow-left-right"></i> {{ action|default:"Create" }} Transfer</h4>
             </div>
             <div class="card-body">
                 <form method="post">
                     {% csrf_token %}
                     {{ form|crispy }}
                     <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> Transfer funds between your accounts. The balance will be automatically updated.
+                        <i class="bi bi-info-circle"></i> {% if action == "Update" %}Update the transfer details. Account balances will be recalculated automatically.{% else %}Transfer funds between your accounts. The balance will be automatically updated.{% endif %}
                     </div>
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-circle"></i> Complete Transfer
+                            <i class="bi bi-check-circle"></i> {% if action == "Update" %}Update Transfer{% else %}Complete Transfer{% endif %}
                         </button>
                         <a href="{% url 'transfer_list' %}" class="btn btn-secondary">
                             <i class="bi bi-x-circle"></i> Cancel

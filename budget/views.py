@@ -960,7 +960,22 @@ def transfer_create(request):
             return redirect('transfer_list')
     else:
         form = TransferForm(user=request.user)
-    return render(request, 'budget/transfer_form.html', {'form': form})
+    return render(request, 'budget/transfer_form.html', {'form': form, 'action': 'Create'})
+
+
+@login_required
+def transfer_update(request, pk):
+    """Update a transfer"""
+    transfer = get_object_or_404(Transfer, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = TransferForm(request.POST, instance=transfer, user=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Transfer updated successfully!')
+            return redirect('transfer_list')
+    else:
+        form = TransferForm(instance=transfer, user=request.user)
+    return render(request, 'budget/transfer_form.html', {'form': form, 'action': 'Update'})
 
 
 @login_required
