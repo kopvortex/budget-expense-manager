@@ -69,6 +69,7 @@ helm/**/values-secrets.yaml
 helm/**/values-*.yaml
 helm/**/values-production.yaml
 helm/**/values-local.yaml
+helm/budget-app/values.yaml
 *-secrets.yaml
 
 # Docker volumes and data
