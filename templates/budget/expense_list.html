@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}Expense List - Budget Manager{% endblock %}
+
+{% block page_title %}Expense Records{% if month_name %} - {{ month_name }} {{ selected_year }}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+    <a href="{% url 'expense_create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle"></i> Add Expense
+    </a>
+</div>
+
+<!-- Filter Form -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-2">
+                <label class="form-label">Category</label>
+                <select name="category" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}" {% if request.GET.category == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Bank Account</label>
+                <select name="account" class="form-select">
+                    <option value="">All Accounts</option>
+                    {% for account in accounts %}
+                    <option value="{{ account.id }}" {% if request.GET.account == account.id|stringformat:"s" %}selected{% endif %}>{{ account.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Month</label>
+                <select name="month" class="form-select">
+                    <option value="">All Months</option>
+                    <option value="1" {% if selected_month == "1" %}selected{% endif %}>January</option>
+                    <option value="2" {% if selected_month == "2" %}selected{% endif %}>February</option>
+                    <option value="3" {% if selected_month == "3" %}selected{% endif %}>March</option>
+                    <option value="4" {% if selected_month == "4" %}selected{% endif %}>April</option>
+                    <option value="5" {% if selected_month == "5" %}selected{% endif %}>May</option>
+                    <option value="6" {% if selected_month == "6" %}selected{% endif %}>June</option>
+                    <option value="7" {% if selected_month == "7" %}selected{% endif %}>July</option>
+                    <option value="8" {% if selected_month == "8" %}selected{% endif %}>August</option>
+                    <option value="9" {% if selected_month == "9" %}selected{% endif %}>September</option>
+                    <option value="10" {% if selected_month == "10" %}selected{% endif %}>October</option>
+                    <option value="11" {% if selected_month == "11" %}selected{% endif %}>November</option>
+                    <option value="12" {% if selected_month == "12" %}selected{% endif %}>December</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">Year</label>
+                <input type="number" name="year" class="form-control" value="{{ selected_year }}" min="2020" max="2025">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Min Amount</label>
+                <input type="number" name="min_amount" class="form-control" placeholder="0.00" step="0.01" value="{{ request.GET.min_amount }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Max Amount</label>
+                <input type="number" name="max_amount" class="form-control" placeholder="0.00" step="0.01" value="{{ request.GET.max_amount }}">
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100 d-block">
+                    <i class="bi bi-filter"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Total Summary -->
+<div class="card mb-4 border-danger">
+    <div class="card-body bg-light">
+        <h4 class="text-danger mb-0">
+            <i class="bi bi-arrow-up-circle"></i> Total Expenses: ${{ total_expense|floatformat:2 }}
+        </h4>
+    </div>
+</div>
+
+<!-- Expense List -->
+<div class="card">
+    <div class="card-body">
+        {% if expenses %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Account</th>
+                        <th class="text-end">Amount</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for expense in expenses %}
+                    <tr>
+                        <td>{{ expense.date }}</td>
+                        <td>{{ expense.description|truncatewords:8 }}</td>
+                        <td><span class="badge bg-warning">{{ expense.category.name }}</span></td>
+                        <td>{{ expense.bank_account.name|default:"N/A" }}</td>
+                        <td class="text-end text-danger fw-bold">${{ expense.amount|floatformat:2 }}</td>
+                        <td class="text-center">
+                            <a href="{% url 'expense_update' expense.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'expense_delete' expense.pk %}" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox" style="font-size: 64px; color: #ccc;"></i>
+            <p class="text-muted mt-3">No expense records found</p>
+            <a href="{% url 'expense_create' %}" class="btn btn-primary">Add Your First Expense</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

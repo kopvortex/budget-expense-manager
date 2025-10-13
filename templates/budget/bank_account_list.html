@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+
+{% block title %}Bank Accounts - Budget Manager{% endblock %}
+
+{% block page_title %}Accounts{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+    <a href="{% url 'bank_account_create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle"></i> Add Account
+    </a>
+</div>
+
+<!-- Accounts Overview -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-bank"></i> Accounts Overview</h5>
+            </div>
+            <div class="card-body">
+                <!-- Net Worth Total -->
+                <div class="mb-4 pb-3" style="border-bottom: 2px solid var(--border-color);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Total Net Worth</h6>
+                    </div>
+                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: {% if total_balance >= 0 %}#10b981{% else %}#ef4444{% endif %};">
+                        ${{ total_balance|floatformat:2 }}
+                    </h3>
+                </div>
+
+                <!-- Accounts by Type -->
+                {% if accounts_by_type %}
+                    {% for account_type, data in accounts_by_type.items %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2" 
+                             style="cursor: pointer; padding: 0.5rem; border-radius: 8px; transition: background 0.2s;"
+                             onmouseover="this.style.background='var(--hover-bg)'"
+                             onmouseout="this.style.background='transparent'"
+                             data-bs-toggle="collapse" 
+                             data-bs-target="#collapse-{{ account_type }}"
+                             aria-expanded="false"
+                             aria-controls="collapse-{{ account_type }}">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-chevron-right me-2" id="icon-{{ account_type }}" style="font-size: 0.75rem; transition: transform 0.2s;"></i>
+                                <div class="me-2" style="width: 3px; height: 24px; background: {{ data.color }}; border-radius: 2px;"></div>
+                                <h6 class="mb-0" style="font-size: 0.8125rem; font-weight: 600;">
+                                    {{ data.display_name }}
+                                </h6>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span style="font-size: 0.875rem; font-weight: 600; color: {% if data.balance >= 0 %}var(--text-primary){% else %}#ef4444{% endif %};">
+                                    ${{ data.balance|floatformat:2 }}
+                                </span>
+                                <span class="badge bg-light text-dark" style="font-size: 0.7rem;">{{ data.count }}</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Expandable Account List -->
+                        <div class="collapse" id="collapse-{{ account_type }}">
+                            <div class="ps-5 pt-2">
+                                {% for account in data.accounts %}
+                                <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom: 1px solid var(--border-color);">
+                                    <div>
+                                        <div style="font-size: 0.8125rem; font-weight: 500;">{{ account.name }}</div>
+                                        {% if account.bank_name %}
+                                        <div class="text-muted" style="font-size: 0.7rem;">{{ account.bank_name }}</div>
+                                        {% endif %}
+                                        <div class="text-muted" style="font-size: 0.7rem;">
+                                            Opening: <span class="{% if account.opening_balance >= 0 %}text-success{% else %}text-danger{% endif %}">${{ account.opening_balance|floatformat:2 }}</span>
+                                        </div>
+                                    </div>
+                                    <span style="font-size: 0.8125rem; font-weight: 600; color: {% if account.balance >= 0 %}var(--text-primary){% else %}#ef4444{% endif %};">
+                                        ${{ account.balance|floatformat:2 }}
+                                    </span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-bank" style="font-size: 48px; color: #ccc;"></i>
+                        <p class="text-muted mt-2 mb-0" style="font-size: 0.875rem;">No accounts found</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+    {% if accounts_by_type %}
+        <div class="card">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0" style="font-size: 0.8125rem;">
+                    <thead style="background: var(--bg-primary); position: sticky; top: 0; z-index: 10;">
+                        <tr>
+                            <th style="width: 25%;">Account Name</th>
+                            <th style="width: 20%;">Bank</th>
+                            <th style="width: 15%; text-align: right;">Opening Balance</th>
+                            <th style="width: 15%; text-align: right;">Current Balance</th>
+                            <th style="width: 12%;">Setup Date</th>
+                            <th style="width: 8%; text-align: center;">Status</th>
+                            <th style="width: 10%; text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for account_type, data in accounts_by_type.items %}
+                        <!-- Account Type Group Header -->
+                        <tr class="account-type-header" style="background: var(--bg-secondary); border-left: 4px solid {{ data.color }};">
+                            <td colspan="7" style="padding: 0.75rem 1rem;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div style="width: 3px; height: 20px; background: {{ data.color }}; border-radius: 2px;"></div>
+                                        <span style="font-weight: 600; font-size: 0.875rem;">{{ data.display_name }}</span>
+                                        <span class="badge bg-light text-dark" style="font-size: 0.7rem;">{{ data.count }}</span>
+                                    </div>
+                                    <span style="font-weight: 600; font-size: 0.875rem; color: {% if data.balance >= 0 %}#10b981{% else %}#ef4444{% endif %};">
+                                        ${{ data.balance|floatformat:2 }}
+                                    </span>
+                                </div>
+                            </td>
+                        </tr>
+                        <!-- Accounts in this type -->
+                        {% for account in data.accounts %}
+                        <tr>
+                            <td style="font-weight: 600; padding-left: 2rem;">{{ account.name }}</td>
+                            <td class="text-muted">{{ account.bank_name|default:"—" }}</td>
+                            <td style="text-align: right;">
+                                <span class="{% if account.opening_balance >= 0 %}text-success{% else %}text-danger{% endif %}" style="font-weight: 500;">
+                                    ${{ account.opening_balance|floatformat:2 }}
+                                </span>
+                            </td>
+                            <td style="text-align: right;">
+                                <span class="{% if account.balance >= 0 %}text-success{% else %}text-danger{% endif %}" style="font-weight: 600; font-size: 0.875rem;">
+                                    ${{ account.balance|floatformat:2 }}
+                                </span>
+                            </td>
+                            <td class="text-muted">
+                                {% if account.account_setup_date %}
+                                    {{ account.account_setup_date|date:"M d, Y" }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td style="text-align: center;">
+                                <span class="badge {% if account.is_active %}bg-success{% else %}bg-secondary{% endif %}" style="font-size: 0.7rem;">
+                                    {% if account.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </td>
+                            <td style="text-align: center;">
+                                <div class="d-flex gap-1 justify-content-center">
+                                    <a href="{% url 'bank_account_update' account.pk %}" class="btn btn-sm btn-outline-primary" style="padding: 0.15rem 0.4rem;">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'bank_account_delete' account.pk %}" class="btn btn-sm btn-outline-danger" style="padding: 0.15rem 0.4rem;">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-bank" style="font-size: 64px; color: #ccc;"></i>
+                <p class="text-muted mt-3">No bank accounts found</p>
+                <a href="{% url 'bank_account_create' %}" class="btn btn-primary">Add Your First Account</a>
+            </div>
+        </div>
+    {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Table hover effect - but not for group headers */
+    .table-hover tbody tr:hover:not(.account-type-header) {
+        background-color: var(--hover-bg);
+    }
+    
+    /* Smooth transition for table rows */
+    .table tbody tr:not(.account-type-header) {
+        transition: background-color 0.15s ease-in-out;
+    }
+    
+    /* Group header styling */
+    .account-type-header {
+        cursor: default;
+    }
+    
+    /* Sticky header shadow */
+    thead {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Rotate chevron icons on collapse show/hide
+document.addEventListener('DOMContentLoaded', function() {
+    const collapseElements = document.querySelectorAll('[id^="collapse-"]');
+    collapseElements.forEach(function(collapseEl) {
+        const accountType = collapseEl.id.replace('collapse-', '');
+        const icon = document.getElementById('icon-' + accountType);
+        
+        if (icon) {
+            collapseEl.addEventListener('show.bs.collapse', function() {
+                icon.style.transform = 'rotate(90deg)';
+            });
+            
+            collapseEl.addEventListener('hide.bs.collapse', function() {
+                icon.style.transform = 'rotate(0deg)';
+            });
+        }
+    });
+});
+</script>
+{% endblock %}
+
+

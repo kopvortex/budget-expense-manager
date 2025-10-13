@@ -1,0 +1,20 @@
+{{- if and .Values.backup.enabled (eq .Values.backup.storageType "pvc") }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.app.name }}-backup-pvc
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "budget-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.backup.storageClass }}
+  storageClassName: {{ .Values.backup.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backup.storageSize }}
+{{- end }}
+

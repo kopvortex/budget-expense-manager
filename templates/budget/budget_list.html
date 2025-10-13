@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title %}Budgets - Budget Manager{% endblock %}
+
+{% block page_title %}Budgets - {% if selected_month == '1' %}January{% elif selected_month == '2' %}February{% elif selected_month == '3' %}March{% elif selected_month == '4' %}April{% elif selected_month == '5' %}May{% elif selected_month == '6' %}June{% elif selected_month == '7' %}July{% elif selected_month == '8' %}August{% elif selected_month == '9' %}September{% elif selected_month == '10' %}October{% elif selected_month == '11' %}November{% elif selected_month == '12' %}December{% endif %} {{ selected_year }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-end mb-3 align-items-center gap-2">
+    <form method="get" class="d-flex align-items-center gap-2">
+        <select name="month" class="form-select form-select-sm" style="width: 110px;">
+            <option value="1" {% if selected_month == '1' %}selected{% endif %}>January</option>
+            <option value="2" {% if selected_month == '2' %}selected{% endif %}>February</option>
+            <option value="3" {% if selected_month == '3' %}selected{% endif %}>March</option>
+            <option value="4" {% if selected_month == '4' %}selected{% endif %}>April</option>
+            <option value="5" {% if selected_month == '5' %}selected{% endif %}>May</option>
+            <option value="6" {% if selected_month == '6' %}selected{% endif %}>June</option>
+            <option value="7" {% if selected_month == '7' %}selected{% endif %}>July</option>
+            <option value="8" {% if selected_month == '8' %}selected{% endif %}>August</option>
+            <option value="9" {% if selected_month == '9' %}selected{% endif %}>September</option>
+            <option value="10" {% if selected_month == '10' %}selected{% endif %}>October</option>
+            <option value="11" {% if selected_month == '11' %}selected{% endif %}>November</option>
+            <option value="12" {% if selected_month == '12' %}selected{% endif %}>December</option>
+        </select>
+        <input type="number" name="year" class="form-control form-control-sm" value="{{ selected_year }}" 
+               min="2020" max="2025" style="width: 90px;">
+        <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-filter"></i> Filter
+        </button>
+    </form>
+    <form method="post" action="{% url 'budget_copy_previous' %}" class="d-inline">
+        {% csrf_token %}
+        <input type="hidden" name="year" value="{{ selected_year }}">
+        <input type="hidden" name="month" value="{{ selected_month }}">
+        <button type="submit" class="btn btn-outline-secondary btn-sm" onclick="return confirm('Copy all budgets from previous month?')">
+            <i class="bi bi-files"></i> Copy Previous
+        </button>
+    </form>
+    <a href="{% url 'budget_create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle"></i> Create Budget
+    </a>
+</div>
+
+{% if budget_data %}
+<div class="row">
+    {% for item in budget_data %}
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h5 class="card-title">{{ item.budget.category.name }}</h5>
+                        <p class="text-muted mb-0">{{ item.budget.month|date:"F Y" }}</p>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <a href="{% url 'budget_update' item.budget.pk %}" class="btn btn-outline-primary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="{% url 'budget_delete' item.budget.pk %}" class="btn btn-outline-danger">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Spent: ${{ item.spent|floatformat:2 }}</span>
+                        <span>Budget: ${{ item.budget.budgeted_amount|floatformat:2 }}</span>
+                    </div>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar {% if item.percentage > 100 %}bg-danger{% elif item.percentage > 80 %}bg-warning{% else %}bg-success{% endif %}"
+                             role="progressbar"
+                             style="width: {% if item.percentage > 100 %}100{% else %}{{ item.percentage }}{% endif %}%">
+                            {{ item.percentage|floatformat:0 }}%
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <span class="{% if item.remaining >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        Remaining: ${{ item.remaining|floatformat:2 }}
+                    </span>
+                    {% if item.percentage > 100 %}
+                    <span class="badge bg-danger">Over Budget</span>
+                    {% elif item.percentage > 80 %}
+                    <span class="badge bg-warning">Warning</span>
+                    {% else %}
+                    <span class="badge bg-success">On Track</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-calculator" style="font-size: 64px; color: #ccc;"></i>
+        <p class="text-muted mt-3">No budgets found</p>
+        <a href="{% url 'budget_create' %}" class="btn btn-primary">Create Your First Budget</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+

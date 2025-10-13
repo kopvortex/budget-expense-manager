@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.app.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.app.name }}
+    {{- include "budget-app.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.app.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.app.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.app.name }}
+    spec:
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+        - |
+          until nc -z {{ .Values.postgres.name }} {{ .Values.postgres.service.port }}; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
+      - name: migrate
+        image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
+        command: ['python', 'manage.py', 'migrate']
+        envFrom:
+        - configMapRef:
+            name: {{ .Values.app.name }}-config
+        - secretRef:
+            name: {{ .Values.app.name }}-secret
+        volumeMounts:
+        - name: media-storage
+          mountPath: /app/media
+        - name: static-storage
+          mountPath: /app/staticfiles
+      - name: collectstatic
+        image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
+        command: ['python', 'manage.py', 'collectstatic', '--noinput']
+        envFrom:
+        - configMapRef:
+            name: {{ .Values.app.name }}-config
+        - secretRef:
+            name: {{ .Values.app.name }}-secret
+        volumeMounts:
+        - name: media-storage
+          mountPath: /app/media
+        - name: static-storage
+          mountPath: /app/staticfiles
+      {{- if .Values.app.superuser.enabled }}
+      - name: create-superuser
+        image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
+        command: ['python', 'manage.py', 'create_default_superuser']
+        envFrom:
+        - configMapRef:
+            name: {{ .Values.app.name }}-config
+        - secretRef:
+            name: {{ .Values.app.name }}-secret
+        volumeMounts:
+        - name: media-storage
+          mountPath: /app/media
+        - name: static-storage
+          mountPath: /app/staticfiles
+      {{- end }}
+      containers:
+      - name: {{ .Values.app.name }}
+        image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
+        imagePullPolicy: {{ .Values.app.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.app.service.targetPort }}
+          name: http
+        envFrom:
+        - configMapRef:
+            name: {{ .Values.app.name }}-config
+        - secretRef:
+            name: {{ .Values.app.name }}-secret
+        volumeMounts:
+        - name: media-storage
+          mountPath: /app/media
+        - name: static-storage
+          mountPath: /app/staticfiles
+        resources:
+          {{- toYaml .Values.app.resources | nindent 10 }}
+        livenessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: media-storage
+        {{- if .Values.app.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ .Values.app.name }}-media-pvc
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      - name: static-storage
+        {{- if .Values.app.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ .Values.app.name }}-static-pvc
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+

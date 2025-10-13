@@ -1,0 +1,100 @@
+# Default values for budget-app
+namespace: budget
+
+app:
+  name: budget-app
+  replicaCount: 2
+  image:
+    repository: <repo>/budget-app
+    tag: latest
+    pullPolicy: Always
+  
+  service:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  
+  env:
+    djangoSecretKey: "<secret-key>"
+    djangoDebug: "False"
+    djangoAllowedHosts: "yourdomain,localhost"
+    csrfTrustedOrigins: "https://yourdomain"
+
+  superuser:
+    enabled: true
+    username: admin
+    email: admin@admin.com
+    password: "admin"
+  
+  persistence:
+    enabled: true
+    storageClass: local-path  # Use default storage class
+    mediaSize: 5Gi
+    staticSize: 2Gi
+
+postgres:
+  enabled: true
+  name: postgres
+  replicaCount: 1
+  image:
+    repository: postgres
+    tag: "15-alpine"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 5432
+    targetPort: 5432
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  
+  env:
+    database: budget_db
+    user: budget_user
+    password: <budget_pass>
+  
+  persistence:
+    enabled: true
+    storageClass: local-path  # Use default storage class
+    size: 10Gi
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-production"
+    traefik.ingress.kubernetes.io/router.entrypoints: "websecure"
+  hosts:
+    - host: yourdomain
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: letsencrypt-production-cert-tls
+      hosts:
+        - yourdomain
+
+backup:
+  enabled: true                    # ← Enable backups
+  schedule: "0 2 * * *"           # ← When to run (2 AM daily)
+  retentionDays: 30               # ← How long to keep backups
+  storageType: "hostPath"         # ← NEW: Use node filesystem
+  
+  hostPath:
+    path: "<backup-path>"  # ← Where to write on node
+    type: "DirectoryOrCreate"
+

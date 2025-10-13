@@ -1,0 +1,462 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Budget Manager{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Summary Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card income">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6>This Month Income</h6>
+                    <h3>${{ monthly_income|floatformat:2 }}</h3>
+                </div>
+                <i class="bi bi-arrow-down-circle" style="color: #10b981; opacity: 0.3;"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card expense">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6>This Month Expenses</h6>
+                    <h3>${{ monthly_expense|floatformat:2 }}</h3>
+                </div>
+                <i class="bi bi-arrow-up-circle" style="color: #ef4444; opacity: 0.3;"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card savings">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6>This Month Savings</h6>
+                    <h3>${{ monthly_savings|floatformat:2 }}</h3>
+                </div>
+                <i class="bi bi-piggy-bank" style="color: #3b82f6; opacity: 0.3;"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card investment">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6>This Month Investments</h6>
+                    <h3>${{ monthly_investments|floatformat:2 }}</h3>
+                </div>
+                <i class="bi bi-graph-up-arrow" style="color: #8b5cf6; opacity: 0.3;"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <!-- Net Worth Over Time -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> Net Worth Over Time</h5>
+                    <div class="btn-group btn-group-sm" role="group" style="font-size: 0.7rem;">
+                        <button type="button" class="btn btn-outline-secondary px-2 py-1" onclick="updatePeriod('1M')" id="btn-1M" style="font-size: 0.7rem;">1M</button>
+                        <button type="button" class="btn btn-outline-secondary px-2 py-1" onclick="updatePeriod('3M')" id="btn-3M" style="font-size: 0.7rem;">3M</button>
+                        <button type="button" class="btn btn-outline-secondary px-2 py-1 active" onclick="updatePeriod('6M')" id="btn-6M" style="font-size: 0.7rem;">6M</button>
+                        <button type="button" class="btn btn-outline-secondary px-2 py-1" onclick="updatePeriod('YTD')" id="btn-YTD" style="font-size: 0.7rem;">YTD</button>
+                        <button type="button" class="btn btn-outline-secondary px-2 py-1" onclick="updatePeriod('ALL')" id="btn-ALL" style="font-size: 0.7rem;">All</button>
+                    </div>
+                </div>
+                
+                <!-- Net Worth Display -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="text-muted" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Current Net Worth</div>
+                            <h3 id="current-networth" class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: {% if total_balance >= 0 %}#10b981{% else %}#ef4444{% endif %};">
+                                ${{ total_balance|floatformat:2 }}
+                            </h3>
+                        </div>
+                        <div class="text-end">
+                            <div id="networth-change" class="d-flex align-items-center justify-content-end" style="font-size: 0.875rem; font-weight: 600;">
+                                <i class="bi bi-arrow-up me-1" style="font-size: 0.75rem;"></i>
+                                <span>$0.00</span>
+                            </div>
+                            <div id="networth-percent" style="font-size: 0.75rem; font-weight: 500;">
+                                0.0%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="networthChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spending Comparison Chart -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-2"><i class="bi bi-calendar-range"></i> Spending Comparison</h5>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Current Month vs Previous Month</small>
+                    <div class="text-end">
+                        <div class="text-muted" style="font-size: 0.7rem;">Total Spent This Month</div>
+                        <h4 class="mb-0" style="font-size: 1.25rem; font-weight: 700; color: #ef4444;">
+                            ${{ monthly_expense|floatformat:2 }}
+                        </h4>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="spendingComparisonChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Income -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recent Income</h5>
+                    <a href="{% url 'income_list' %}" class="btn btn-sm btn-outline-success">View All</a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if recent_incomes %}
+                    <div class="list-group list-group-flush">
+                        {% for income in recent_incomes %}
+                        <div class="list-group-item d-flex justify-content-between align-items-start border-0">
+                            <div>
+                                <strong>{{ income.description|truncatewords:5 }}</strong>
+                                <br>
+                                <small class="text-muted">
+                                    <i class="bi bi-tag"></i> {{ income.category.name }}
+                                    | <i class="bi bi-calendar"></i> {{ income.date }}
+                                </small>
+                            </div>
+                            <span class="badge bg-success">${{ income.amount|floatformat:2 }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center">No income records. <a href="{% url 'income_create' %}">Add one</a></p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Expenses -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recent Expenses</h5>
+                    <a href="{% url 'expense_list' %}" class="btn btn-sm btn-outline-danger">View All</a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if recent_expenses %}
+                    <div class="list-group list-group-flush">
+                        {% for expense in recent_expenses %}
+                        <div class="list-group-item d-flex justify-content-between align-items-start border-0">
+                            <div>
+                                <strong>{{ expense.description|truncatewords:5 }}</strong>
+                                <br>
+                                <small class="text-muted">
+                                    <i class="bi bi-tag"></i> {{ expense.category.name }}
+                                    | <i class="bi bi-calendar"></i> {{ expense.date }}
+                                </small>
+                            </div>
+                            <span class="badge bg-danger">${{ expense.amount|floatformat:2 }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center">No expense records. <a href="{% url 'expense_create' %}">Add one</a></p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Quick Actions</h5>
+                <div class="row text-center">
+                    <div class="col-md-2">
+                        <a href="{% url 'income_create' %}" class="btn btn-outline-success w-100 mb-2">
+                            <i class="bi bi-plus-circle"></i><br>Add Income
+                        </a>
+                    </div>
+                    <div class="col-md-2">
+                        <a href="{% url 'expense_create' %}" class="btn btn-outline-danger w-100 mb-2">
+                            <i class="bi bi-plus-circle"></i><br>Add Expense
+                        </a>
+                    </div>
+                    <div class="col-md-2">
+                        <a href="{% url 'transfer_create' %}" class="btn btn-outline-primary w-100 mb-2">
+                            <i class="bi bi-arrow-left-right"></i><br>Transfer
+                        </a>
+                    </div>
+                    <div class="col-md-2">
+                        <a href="{% url 'budget_create' %}" class="btn btn-outline-info w-100 mb-2">
+                            <i class="bi bi-calculator"></i><br>Set Budget
+                        </a>
+                    </div>
+                    <div class="col-md-2">
+                        <a href="{% url 'monthly_summary' %}" class="btn btn-outline-secondary w-100 mb-2">
+                            <i class="bi bi-file-earmark-text"></i><br>Monthly Report
+                        </a>
+                    </div>
+                    <div class="col-md-2">
+                        <a href="{% url 'annual_summary' %}" class="btn btn-outline-secondary w-100 mb-2">
+                            <i class="bi bi-graph-up"></i><br>Annual Report
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Net Worth Over Time Chart
+let networthChart;
+let networthData = {{ networth_data|safe }};
+let currentPeriod = '6M';
+
+function updatePeriod(period) {
+    currentPeriod = period;
+    
+    // Update button states
+    document.querySelectorAll('.btn-group button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.getElementById('btn-' + period).classList.add('active');
+    
+    // Filter data based on period
+    let filteredData = filterDataByPeriod(networthData, period);
+    
+    // Update chart
+    networthChart.data.labels = filteredData.labels;
+    networthChart.data.datasets[0].data = filteredData.values;
+    networthChart.update();
+    
+    // Calculate and update net worth change
+    updateNetworthChange(filteredData.values);
+}
+
+function updateNetworthChange(values) {
+    if (values.length < 2) {
+        return;
+    }
+    
+    const currentValue = values[values.length - 1];
+    const previousValue = values[0];
+    const change = currentValue - previousValue;
+    const percentChange = previousValue !== 0 ? (change / Math.abs(previousValue)) * 100 : 0;
+    
+    const changeElement = document.getElementById('networth-change');
+    const percentElement = document.getElementById('networth-percent');
+    
+    // Update change amount
+    const changeText = Math.abs(change).toFixed(2);
+    const icon = change >= 0 ? 'bi-arrow-up' : 'bi-arrow-down';
+    const color = change >= 0 ? '#10b981' : '#ef4444';
+    
+    changeElement.innerHTML = `
+        <i class="bi ${icon} me-1" style="font-size: 0.75rem;"></i>
+        <span>$${changeText}</span>
+    `;
+    changeElement.style.color = color;
+    
+    // Update percentage
+    const percentText = Math.abs(percentChange).toFixed(1);
+    percentElement.textContent = `${percentText}%`;
+    percentElement.style.color = color;
+}
+
+function filterDataByPeriod(data, period) {
+    const now = new Date();
+    let cutoffDate;
+    
+    if (period === '1M') {
+        cutoffDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    } else if (period === '3M') {
+        cutoffDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+    } else if (period === '6M') {
+        cutoffDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+    } else if (period === 'YTD') {
+        cutoffDate = new Date(now.getFullYear(), 0, 1);
+    } else { // ALL
+        return data;
+    }
+    
+    const filtered = {
+        labels: [],
+        values: []
+    };
+    
+    for (let i = 0; i < data.labels.length; i++) {
+        const date = new Date(data.dates[i]);
+        if (date >= cutoffDate) {
+            filtered.labels.push(data.labels[i]);
+            filtered.values.push(data.values[i]);
+        }
+    }
+    
+    return filtered;
+}
+
+// Initialize Net Worth Chart
+const networthCtx = document.getElementById('networthChart').getContext('2d');
+let initialData = filterDataByPeriod(networthData, '6M');
+
+networthChart = new Chart(networthCtx, {
+    type: 'line',
+    data: {
+        labels: initialData.labels,
+        datasets: [{
+            label: 'Net Worth',
+            data: initialData.values,
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            borderWidth: 3
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+            intersect: false,
+            mode: 'index'
+        },
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return 'Net Worth: $' + context.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: false,
+                ticks: {
+                    callback: function(value) {
+                        return '$' + value.toLocaleString();
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Initialize net worth change display
+updateNetworthChange(initialData.values);
+
+// Spending Comparison Chart
+const spendingComparisonCtx = document.getElementById('spendingComparisonChart').getContext('2d');
+const spendingData = {{ spending_comparison_data|safe }};
+
+new Chart(spendingComparisonCtx, {
+    type: 'line',
+    data: {
+        labels: spendingData.days,
+        datasets: [
+            {
+                label: spendingData.current_month_label,
+                data: spendingData.current_month,
+                borderColor: '#ef4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 2,
+                pointHoverRadius: 5,
+                borderWidth: 2
+            },
+            {
+                label: spendingData.previous_month_label,
+                data: spendingData.previous_month,
+                borderColor: '#94a3b8',
+                backgroundColor: 'rgba(148, 163, 184, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 2,
+                pointHoverRadius: 5,
+                borderWidth: 2
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+            intersect: false,
+            mode: 'index'
+        },
+        plugins: {
+            legend: {
+                display: true,
+                position: 'top',
+                labels: {
+                    usePointStyle: true,
+                    padding: 10,
+                    font: {
+                        size: 11
+                    }
+                }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.dataset.label + ': $' + context.parsed.y.toFixed(2);
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return '$' + value.toFixed(0);
+                    }
+                }
+            },
+            x: {
+                ticks: {
+                    font: {
+                        size: 10
+                    }
+                }
+            }
+        }
+    }
+});
+
+
+</script>
+{% endblock %}
+

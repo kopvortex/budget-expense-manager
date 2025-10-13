@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.app.name }}-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "budget-app.labels" . | nindent 4 }}
+data:
+  DJANGO_DEBUG: {{ .Values.app.env.djangoDebug | quote }}
+  DJANGO_ALLOWED_HOSTS: {{ .Values.app.env.djangoAllowedHosts | quote }}
+  CSRF_TRUSTED_ORIGINS: {{ .Values.app.env.csrfTrustedOrigins | default "https://yourdomain" | quote }}
+  DB_HOST: {{ .Values.postgres.name | quote }}
+  DB_PORT: {{ .Values.postgres.service.port | quote }}
+  DB_NAME: {{ .Values.postgres.env.database | quote }}
+

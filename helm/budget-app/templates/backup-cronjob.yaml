@@ -1,0 +1,92 @@
+{{- if .Values.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Values.app.name }}-db-backup
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "budget-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.backup.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.backup.failedJobsHistoryLimit }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ .Values.app.name }}-db-backup
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: postgres-backup
+            image: postgres:15-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "Starting backup at $(date)"
+              BACKUP_FILE="/backups/budget_db_backup_$(date +%Y%m%d_%H%M%S).sql.gz"
+              
+              # Wait for postgres to be ready
+              until pg_isready -h {{ .Values.postgres.name }} -p {{ .Values.postgres.service.port }} -U {{ .Values.postgres.env.user }}; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+              
+              # Create backup
+              PGPASSWORD="${DB_PASSWORD}" pg_dump \
+                -h {{ .Values.postgres.name }} \
+                -p {{ .Values.postgres.service.port }} \
+                -U {{ .Values.postgres.env.user }} \
+                -d {{ .Values.postgres.env.database }} \
+                | gzip > "${BACKUP_FILE}"
+              
+              if [ $? -eq 0 ]; then
+                BACKUP_SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
+                echo "✓ Backup completed successfully!"
+                echo "  File: ${BACKUP_FILE}"
+                echo "  Size: ${BACKUP_SIZE}"
+                
+                # Remove backups older than retention days
+                echo "Cleaning up old backups (keeping last {{ .Values.backup.retentionDays }} days)..."
+                find /backups -name "budget_db_backup_*.sql.gz" -mtime +{{ .Values.backup.retentionDays }} -delete
+                
+                REMAINING=$(ls -1 /backups/budget_db_backup_*.sql.gz 2>/dev/null | wc -l)
+                echo "✓ Cleanup complete. ${REMAINING} backup(s) remaining."
+              else
+                echo "✗ Backup failed!"
+                exit 1
+              fi
+              
+              echo "Backup completed at $(date)"
+            env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.app.name }}-secret
+                  key: DB_PASSWORD
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+          volumes:
+          - name: backup-storage
+{{- if eq .Values.backup.storageType "pvc" }}
+            persistentVolumeClaim:
+              claimName: {{ .Values.app.name }}-backup-pvc
+{{- else if eq .Values.backup.storageType "hostPath" }}
+            hostPath:
+              path: {{ .Values.backup.hostPath.path }}
+              type: {{ .Values.backup.hostPath.type }}
+{{- else if eq .Values.backup.storageType "nfs" }}
+            nfs:
+              server: {{ .Values.backup.nfs.server }}
+              path: {{ .Values.backup.nfs.path }}
+              readOnly: {{ .Values.backup.nfs.readOnly }}
+{{- end }}
+{{- end }}
+
