@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Delete Tag{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Confirm Tag Deletion</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i> 
+                    <strong>Warning:</strong> You are about to delete the tag <strong>"{{ tag.name }}"</strong>.
+                </div>
+
+                {% if total_count > 0 %}
+                <div class="alert alert-info">
+                    <p class="mb-2"><strong>This tag is currently used in:</strong></p>
+                    <ul class="mb-0">
+                        {% if income_count > 0 %}
+                        <li><strong>{{ income_count }}</strong> income transaction{{ income_count|pluralize }}</li>
+                        {% endif %}
+                        {% if expense_count > 0 %}
+                        <li><strong>{{ expense_count }}</strong> expense transaction{{ expense_count|pluralize }}</li>
+                        {% endif %}
+                    </ul>
+                    <p class="mt-2 mb-0">
+                        <i class="bi bi-info-circle"></i> The tag will be removed from all these transactions, 
+                        but the transactions themselves will not be deleted.
+                    </p>
+                </div>
+                {% else %}
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i> This tag is not being used in any transactions. 
+                    It's safe to delete.
+                </div>
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> Yes, Delete Tag
+                        </button>
+                        <a href="{% url 'tag_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

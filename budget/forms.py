@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from datetime import datetime
-from .models import BankAccount, Category, Income, Expense, MonthlyBudget, Transfer
+from .models import BankAccount, Category, Income, Expense, MonthlyBudget, Transfer, Tag
 
 
 class UserRegisterForm(UserCreationForm):
@@ -89,6 +89,16 @@ class CategoryForm(forms.ModelForm):
 
 
 class IncomeForm(forms.ModelForm):
+    tags_input = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter tags separated by commas (e.g., salary, bonus, freelance)'
+        }),
+        label='Tags',
+        help_text='Optional: Add tags to categorize this income (comma-separated)'
+    )
+    
     class Meta:
         model = Income
         fields = ['category', 'bank_account', 'amount', 'description', 'date']
@@ -106,6 +116,12 @@ class IncomeForm(forms.ModelForm):
         if user:
             self.fields['category'].queryset = Category.objects.filter(user=user, category_type='income')
             self.fields['bank_account'].queryset = BankAccount.objects.filter(user=user, is_active=True)
+        
+        # Pre-populate tags if editing
+        if self.instance and self.instance.pk:
+            existing_tags = self.instance.tags.all()
+            if existing_tags:
+                self.fields['tags_input'].initial = ', '.join([tag.name for tag in existing_tags])
     
     def clean(self):
         cleaned_data = super().clean()
@@ -123,6 +139,16 @@ class IncomeForm(forms.ModelForm):
 
 
 class ExpenseForm(forms.ModelForm):
+    tags_input = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter tags separated by commas (e.g., groceries, utilities, entertainment)'
+        }),
+        label='Tags',
+        help_text='Optional: Add tags to categorize this expense (comma-separated)'
+    )
+    
     class Meta:
         model = Expense
         fields = ['category', 'bank_account', 'amount', 'description', 'date']
@@ -140,6 +166,12 @@ class ExpenseForm(forms.ModelForm):
         if user:
             self.fields['category'].queryset = Category.objects.filter(user=user, category_type='expense')
             self.fields['bank_account'].queryset = BankAccount.objects.filter(user=user, is_active=True)
+        
+        # Pre-populate tags if editing
+        if self.instance and self.instance.pk:
+            existing_tags = self.instance.tags.all()
+            if existing_tags:
+                self.fields['tags_input'].initial = ', '.join([tag.name for tag in existing_tags])
     
     def clean(self):
         cleaned_data = super().clean()
@@ -264,3 +296,45 @@ class TransferForm(forms.ModelForm):
         
         return cleaned_data
 
+
+class TagForm(forms.ModelForm):
+    class Meta:
+        model = Tag
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter tag name (e.g., Salary, Rent, Groceries)'
+            }),
+        }
+        help_texts = {
+            'name': 'Tag names will be automatically converted to camelCase (e.g., "monthly bills" → "MonthlyBills"). A color will be automatically assigned.'
+        }
+    
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+    
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        if name:
+            # Normalize to camelCase
+            normalized_name = Tag.normalize_tag_name(name)
+            if not normalized_name:
+                raise forms.ValidationError('Tag name cannot be empty')
+            
+            # Get the user from instance or from the form initialization
+            user = self.instance.user if self.instance.pk else self.user
+            
+            # Check if tag already exists for this user (case-insensitive)
+            if user:
+                query = Tag.objects.filter(user=user, name__iexact=normalized_name)
+                if self.instance.pk:
+                    # Editing existing tag - exclude current instance
+                    query = query.exclude(pk=self.instance.pk)
+                
+                if query.exists():
+                    raise forms.ValidationError(f'Tag "{normalized_name}" already exists')
+            
+            return normalized_name
+        return name

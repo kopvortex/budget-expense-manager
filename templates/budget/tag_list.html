@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block page_title %}Tags{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-tag"></i> Tags</h2>
+    <a href="{% url 'tag_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Create Tag
+    </a>
+</div>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> Tags help you categorize and track your income and expenses beyond categories. 
+    You can filter reports by tags to see spending patterns.
+</div>
+
+{% if tag_usage %}
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Tag Name</th>
+                        <th class="text-center">Income Transactions</th>
+                        <th class="text-center">Expense Transactions</th>
+                        <th class="text-center">Total Usage</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in tag_usage %}
+                    <tr>
+                        <td>
+                            <span class="badge" style="font-size: 0.75rem; padding: 0.35rem 0.6rem; background-color: {{ item.tag.color }}; color: white;">
+                                <i class="bi bi-tag-fill"></i> {{ item.tag.name }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            {% if item.income_count > 0 %}
+                                <span class="badge bg-success">{{ item.income_count }}</span>
+                            {% else %}
+                                <span class="text-muted">0</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if item.expense_count > 0 %}
+                                <span class="badge bg-danger">{{ item.expense_count }}</span>
+                            {% else %}
+                                <span class="text-muted">0</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <strong>{{ item.total_count }}</strong>
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'tag_update' item.tag.pk %}" 
+                               class="btn btn-sm btn-outline-primary" 
+                               title="Edit Tag">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'tag_delete' item.tag.pk %}" 
+                               class="btn btn-sm btn-outline-danger" 
+                               title="Delete Tag">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="mt-3">
+    <p class="text-muted small">
+        <i class="bi bi-lightbulb"></i> <strong>Tip:</strong> Tags are automatically converted to camelCase format 
+        (e.g., "monthly bills" becomes "MonthlyBills"). You can use the same tag across multiple income and expense entries.
+    </p>
+</div>
+
+{% else %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i> No tags found. 
+    <a href="{% url 'tag_create' %}" class="alert-link">Create your first tag</a> to start organizing your transactions.
+</div>
+{% endif %}
+{% endblock %}
+

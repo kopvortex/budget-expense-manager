@@ -29,3 +29,27 @@
 </div>
 {% endblock %}
 
+{% block extra_js %}
+<script>
+// Add autocomplete datalist for tags
+document.addEventListener('DOMContentLoaded', function() {
+    const tagsInput = document.getElementById('id_tags_input');
+    if (tagsInput) {
+        const datalist = document.createElement('datalist');
+        datalist.id = 'tags-list';
+        {% if existing_tags %}
+        const tags = {{ existing_tags|safe }};
+        tags.forEach(tag => {
+            const option = document.createElement('option');
+            option.value = tag;
+            datalist.appendChild(option);
+        });
+        {% endif %}
+        document.body.appendChild(datalist);
+        tagsInput.setAttribute('list', 'tags-list');
+        tagsInput.setAttribute('autocomplete', 'off');
+    }
+});
+</script>
+{% endblock %}
+

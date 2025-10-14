@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import BankAccount, Category, Income, Expense, MonthlyBudget, Transfer
+from .models import BankAccount, Category, Income, Expense, MonthlyBudget, Transfer, Tag
 
 
 @admin.register(BankAccount)
@@ -49,5 +49,13 @@ class TransferAdmin(admin.ModelAdmin):
     list_filter = ['date']
     search_fields = ['description']
     date_hierarchy = 'date'
+    readonly_fields = ['created_at']
+
+
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):
+    list_display = ['name', 'user', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['name']
     readonly_fields = ['created_at']
 

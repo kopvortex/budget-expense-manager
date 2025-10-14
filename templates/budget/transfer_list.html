@@ -14,59 +14,58 @@
 <!-- Filter Form -->
 <div class="card mb-4">
     <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-2">
-                <label class="form-label">From Account</label>
-                <select name="from_account" class="form-select">
-                    <option value="">All Accounts</option>
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-lg-2 col-md-3 col-sm-6">
+                <label class="form-label small mb-1">From Account</label>
+                <select name="from_account" class="form-select form-select-sm">
+                    <option value="">All</option>
                     {% for account in accounts %}
                     <option value="{{ account.id }}" {% if request.GET.from_account == account.id|stringformat:"s" %}selected{% endif %}>{{ account.name }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-2">
-                <label class="form-label">To Account</label>
-                <select name="to_account" class="form-select">
-                    <option value="">All Accounts</option>
+            <div class="col-lg-2 col-md-3 col-sm-6">
+                <label class="form-label small mb-1">To Account</label>
+                <select name="to_account" class="form-select form-select-sm">
+                    <option value="">All</option>
                     {% for account in accounts %}
                     <option value="{{ account.id }}" {% if request.GET.to_account == account.id|stringformat:"s" %}selected{% endif %}>{{ account.name }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-2">
-                <label class="form-label">Month</label>
-                <select name="month" class="form-select">
-                    <option value="">All Months</option>
-                    <option value="1" {% if selected_month == "1" %}selected{% endif %}>January</option>
-                    <option value="2" {% if selected_month == "2" %}selected{% endif %}>February</option>
-                    <option value="3" {% if selected_month == "3" %}selected{% endif %}>March</option>
-                    <option value="4" {% if selected_month == "4" %}selected{% endif %}>April</option>
+            <div class="col-lg-1 col-md-2 col-sm-4">
+                <label class="form-label small mb-1">Month</label>
+                <select name="month" class="form-select form-select-sm">
+                    <option value="">All</option>
+                    <option value="1" {% if selected_month == "1" %}selected{% endif %}>Jan</option>
+                    <option value="2" {% if selected_month == "2" %}selected{% endif %}>Feb</option>
+                    <option value="3" {% if selected_month == "3" %}selected{% endif %}>Mar</option>
+                    <option value="4" {% if selected_month == "4" %}selected{% endif %}>Apr</option>
                     <option value="5" {% if selected_month == "5" %}selected{% endif %}>May</option>
-                    <option value="6" {% if selected_month == "6" %}selected{% endif %}>June</option>
-                    <option value="7" {% if selected_month == "7" %}selected{% endif %}>July</option>
-                    <option value="8" {% if selected_month == "8" %}selected{% endif %}>August</option>
-                    <option value="9" {% if selected_month == "9" %}selected{% endif %}>September</option>
-                    <option value="10" {% if selected_month == "10" %}selected{% endif %}>October</option>
-                    <option value="11" {% if selected_month == "11" %}selected{% endif %}>November</option>
-                    <option value="12" {% if selected_month == "12" %}selected{% endif %}>December</option>
+                    <option value="6" {% if selected_month == "6" %}selected{% endif %}>Jun</option>
+                    <option value="7" {% if selected_month == "7" %}selected{% endif %}>Jul</option>
+                    <option value="8" {% if selected_month == "8" %}selected{% endif %}>Aug</option>
+                    <option value="9" {% if selected_month == "9" %}selected{% endif %}>Sep</option>
+                    <option value="10" {% if selected_month == "10" %}selected{% endif %}>Oct</option>
+                    <option value="11" {% if selected_month == "11" %}selected{% endif %}>Nov</option>
+                    <option value="12" {% if selected_month == "12" %}selected{% endif %}>Dec</option>
                 </select>
             </div>
-            <div class="col-md-1">
-                <label class="form-label">Year</label>
-                <input type="number" name="year" class="form-control" value="{{ selected_year }}" min="2020" max="2025">
+            <div class="col-lg-1 col-md-1 col-sm-3">
+                <label class="form-label small mb-1">Year</label>
+                <input type="number" name="year" class="form-control form-control-sm" value="{{ selected_year }}" min="2020" max="2030">
             </div>
-            <div class="col-md-2">
-                <label class="form-label">Min Amount</label>
-                <input type="number" name="min_amount" class="form-control" placeholder="0.00" step="0.01" value="{{ request.GET.min_amount }}">
+            <div class="col-lg-2 col-md-2 col-sm-5">
+                <label class="form-label small mb-1">Min $</label>
+                <input type="number" name="min_amount" class="form-control form-control-sm" placeholder="0" step="0.01" value="{{ request.GET.min_amount }}">
             </div>
-            <div class="col-md-2">
-                <label class="form-label">Max Amount</label>
-                <input type="number" name="max_amount" class="form-control" placeholder="0.00" step="0.01" value="{{ request.GET.max_amount }}">
+            <div class="col-lg-2 col-md-2 col-sm-6">
+                <label class="form-label small mb-1">Max $</label>
+                <input type="number" name="max_amount" class="form-control form-control-sm" placeholder="0" step="0.01" value="{{ request.GET.max_amount }}">
             </div>
-            <div class="col-md-1">
-                <label class="form-label">&nbsp;</label>
-                <button type="submit" class="btn btn-primary w-100 d-block">
-                    <i class="bi bi-filter"></i>
+            <div class="col-lg-2 col-md-3 col-sm-3">
+                <button type="submit" class="btn btn-primary btn-sm w-100">
+                    <i class="bi bi-filter"></i> Filter
                 </button>
             </div>
         </form>

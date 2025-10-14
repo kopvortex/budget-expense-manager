@@ -106,6 +106,64 @@ class Category(models.Model):
         return f"{self.name} ({self.category_type})"
 
 
+class Tag(models.Model):
+    """Model for transaction tags"""
+    COLOR_CHOICES = [
+        ('#6366f1', 'Indigo'),
+        ('#3b82f6', 'Blue'),
+        ('#10b981', 'Green'),
+        ('#f59e0b', 'Amber'),
+        ('#ef4444', 'Red'),
+        ('#8b5cf6', 'Purple'),
+        ('#ec4899', 'Pink'),
+        ('#06b6d4', 'Cyan'),
+        ('#84cc16', 'Lime'),
+        ('#f97316', 'Orange'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tags')
+    name = models.CharField(max_length=50)  # Stored in camelCase
+    color = models.CharField(max_length=7, choices=COLOR_CHOICES, default='#6366f1')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['name']
+        unique_together = ['user', 'name']
+        
+    def __str__(self):
+        return self.name
+    
+    @staticmethod
+    def normalize_tag_name(tag_name):
+        """Convert tag name to camelCase with first letter capitalized"""
+        # Remove leading/trailing whitespace
+        tag_name = tag_name.strip()
+        if not tag_name:
+            return ''
+        
+        # Split by spaces or underscores
+        words = tag_name.replace('_', ' ').split()
+        if not words:
+            return ''
+        
+        # If there's only one word (no spaces), just capitalize first letter and keep rest as-is
+        # This preserves existing camelCase like "NewTag1" or "iPhone"
+        if len(words) == 1:
+            word = words[0]
+            return word[0].upper() + word[1:] if len(word) > 1 else word.upper()
+        
+        # For multiple words, capitalize first letter of each and join
+        normalized_words = []
+        for word in words:
+            if word:
+                # Capitalize first character, lowercase the rest
+                normalized_words.append(word[0].upper() + word[1:].lower() if len(word) > 1 else word.upper())
+        
+        # Join all words together (camelCase)
+        camel_case = ''.join(normalized_words)
+        return camel_case
+
+
 class Income(models.Model):
     """Model for tracking income"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incomes')
@@ -114,6 +172,7 @@ class Income(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     description = models.TextField()
     date = models.DateField(default=timezone.now)
+    tags = models.ManyToManyField(Tag, blank=True, related_name='incomes')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -122,6 +181,19 @@ class Income(models.Model):
         
     def __str__(self):
         return f"{self.description} - ${self.amount}"
+    
+    def is_opening_balance(self):
+        """Check if this income is an Opening Balance transaction"""
+        if not self.bank_account:
+            return False
+        # Check if this is an Opening Balance transaction by:
+        # 1. Date matches account setup date
+        # 2. Description contains "Opening Balance"
+        # Note: We don't check amount because opening balance can be edited
+        return (
+            self.date == self.bank_account.account_setup_date and
+            'Opening Balance' in self.description
+        )
     
     @transaction.atomic
     def save(self, *args, **kwargs):
@@ -189,6 +261,7 @@ class Expense(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     description = models.TextField()
     date = models.DateField(default=timezone.now)
+    tags = models.ManyToManyField(Tag, blank=True, related_name='expenses')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

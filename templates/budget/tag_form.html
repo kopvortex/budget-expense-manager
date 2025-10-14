@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block page_title %}{{ action }} Tag{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h4 class="mb-0"><i class="bi bi-tag"></i> {{ action|default:"Create" }} Tag</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-4">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>Tag Formatting:</strong> Tag names will be automatically converted to camelCase. 
+                    For example, "monthly bills" will become "MonthlyBills".
+                </div>
+
+                {% if action == "Update" and tag %}
+                <div class="alert alert-warning mb-4">
+                    <i class="bi bi-exclamation-triangle"></i> 
+                    <strong>Renaming Warning:</strong> This tag is currently used in <strong>{{ tag.incomes.count|add:tag.expenses.count }} transaction(s)</strong>. 
+                    Renaming it will update the tag name in all these transactions.
+                </div>
+                {% endif %}
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {{ form|crispy }}
+                    
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> {% if action == "Update" %}Update Tag{% else %}Create Tag{% endif %}
+                        </button>
+                        <a href="{% url 'tag_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if action == "Update" %}
+        <div class="card mt-3">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> Tag Usage</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col">
+                        <h3 class="text-success mb-0">{{ tag.incomes.count }}</h3>
+                        <small class="text-muted">Income Transactions</small>
+                    </div>
+                    <div class="col">
+                        <h3 class="text-danger mb-0">{{ tag.expenses.count }}</h3>
+                        <small class="text-muted">Expense Transactions</small>
+                    </div>
+                    <div class="col">
+                        <h3 class="text-primary mb-0">{{ tag.incomes.count|add:tag.expenses.count }}</h3>
+                        <small class="text-muted">Total Usage</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

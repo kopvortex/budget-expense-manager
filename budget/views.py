@@ -6,11 +6,18 @@ from django.db.models import Sum, Q
 from django.utils import timezone
 from datetime import datetime, timedelta
 from decimal import Decimal
-from .models import BankAccount, Category, Income, Expense, MonthlyBudget, Transfer
+import random
+from .models import BankAccount, Category, Income, Expense, MonthlyBudget, Transfer, Tag
 from .forms import (
     UserRegisterForm, BankAccountForm, CategoryForm, IncomeForm,
-    ExpenseForm, MonthlyBudgetForm, TransferForm
+    ExpenseForm, MonthlyBudgetForm, TransferForm, TagForm
 )
+
+
+def get_random_tag_color():
+    """Get a random color for a new tag"""
+    available_colors = [color[0] for color in Tag.COLOR_CHOICES]
+    return random.choice(available_colors)
 
 
 def register(request):
@@ -645,6 +652,7 @@ def income_list(request):
     account_filter = request.GET.get('account')
     min_amount = request.GET.get('min_amount')
     max_amount = request.GET.get('max_amount')
+    tag_filters = request.GET.getlist('tag')  # Get list of tag IDs
     
     if category_filter:
         incomes = incomes.filter(category_id=category_filter)
@@ -658,10 +666,13 @@ def income_list(request):
         incomes = incomes.filter(amount__gte=Decimal(min_amount))
     if max_amount:
         incomes = incomes.filter(amount__lte=Decimal(max_amount))
+    if tag_filters:
+        incomes = incomes.filter(tags__id__in=tag_filters).distinct()
     
     total_income = incomes.aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
     categories = Category.objects.filter(user=request.user, category_type='income')
     accounts = BankAccount.objects.filter(user=request.user)
+    all_tags = Tag.objects.filter(user=request.user).order_by('name')
     
     # Get month name if month_filter exists
     month_name = None
@@ -678,6 +689,8 @@ def income_list(request):
         'selected_month': month_filter,
         'selected_year': year_filter,
         'month_name': month_name,
+        'all_tags': all_tags,
+        'selected_tags': [int(t) for t in tag_filters if t],
     }
     return render(request, 'budget/income_list.html', context)
 
@@ -691,11 +704,41 @@ def income_create(request):
             income = form.save(commit=False)
             income.user = request.user
             income.save()
+            
+            # Handle tags
+            tags_input = form.cleaned_data.get('tags_input', '')
+            if tags_input:
+                tag_names = [tag.strip() for tag in tags_input.split(',') if tag.strip()]
+                for tag_name in tag_names:
+                    # Normalize to camelCase
+                    normalized_name = Tag.normalize_tag_name(tag_name)
+                    if normalized_name:
+                        # Get or create tag (case-insensitive search)
+                        tag, created = Tag.objects.get_or_create(
+                            user=request.user,
+                            name__iexact=normalized_name,
+                            defaults={
+                                'name': normalized_name,
+                                'color': get_random_tag_color()
+                            }
+                        )
+                        # If tag was found with different casing, use existing
+                        if not created:
+                            tag = Tag.objects.get(user=request.user, name__iexact=normalized_name)
+                        income.tags.add(tag)
+            
             messages.success(request, 'Income added successfully!')
             return redirect('income_list')
     else:
         form = IncomeForm(user=request.user)
-    return render(request, 'budget/income_form.html', {'form': form, 'action': 'Add'})
+    
+    # Get all existing tags for autocomplete
+    existing_tags = Tag.objects.filter(user=request.user).order_by('name').values_list('name', flat=True)
+    return render(request, 'budget/income_form.html', {
+        'form': form,
+        'action': 'Add',
+        'existing_tags': list(existing_tags)
+    })
 
 
 @login_required
@@ -705,24 +748,144 @@ def income_update(request, pk):
     if request.method == 'POST':
         form = IncomeForm(request.POST, instance=income, user=request.user)
         if form.is_valid():
-            form.save()
+            income = form.save()
+            
+            # Update tags atomically
+            tags_input = form.cleaned_data.get('tags_input', '')
+            tag_objects = []
+            if tags_input:
+                tag_names = [tag.strip() for tag in tags_input.split(',') if tag.strip()]
+                for tag_name in tag_names:
+                    # Normalize to camelCase
+                    normalized_name = Tag.normalize_tag_name(tag_name)
+                    if normalized_name:
+                        # Get or create tag (case-insensitive search)
+                        tag, created = Tag.objects.get_or_create(
+                            user=request.user,
+                            name__iexact=normalized_name,
+                            defaults={
+                                'name': normalized_name,
+                                'color': get_random_tag_color()
+                            }
+                        )
+                        # If tag was found with different casing, use existing
+                        if not created:
+                            tag = Tag.objects.get(user=request.user, name__iexact=normalized_name)
+                        tag_objects.append(tag)
+            # Atomic replace - either set new tags or clear all
+            income.tags.set(tag_objects)
+            
             messages.success(request, 'Income updated successfully!')
             return redirect('income_list')
     else:
         form = IncomeForm(instance=income, user=request.user)
-    return render(request, 'budget/income_form.html', {'form': form, 'action': 'Update'})
+    
+    # Get all existing tags for autocomplete
+    existing_tags = Tag.objects.filter(user=request.user).order_by('name').values_list('name', flat=True)
+    return render(request, 'budget/income_form.html', {
+        'form': form,
+        'action': 'Update',
+        'existing_tags': list(existing_tags)
+    })
 
 
 @login_required
 def income_delete(request, pk):
     """Delete an income"""
     income = get_object_or_404(Income, pk=pk, user=request.user)
+    
+    # Protect Opening Balance transactions
+    if income.is_opening_balance():
+        messages.error(request, 'Cannot delete Opening Balance transaction! To change the opening balance, edit the account instead.')
+        return redirect('income_list')
+    
     if request.method == 'POST':
         # Balance update now handled atomically in model's delete() method
         income.delete()
         messages.success(request, 'Income deleted successfully!')
         return redirect('income_list')
     return render(request, 'budget/income_confirm_delete.html', {'income': income})
+
+
+@login_required
+def income_bulk_tag(request):
+    """Bulk add or remove tags from selected incomes"""
+    if request.method == 'POST':
+        income_ids = request.POST.getlist('income_ids')
+        action = request.POST.get('action')
+        tag_ids = request.POST.get('tags', '').split(',')
+        
+        if not income_ids:
+            messages.error(request, 'No income transactions selected')
+            return redirect('income_list')
+        
+        if not tag_ids or tag_ids == ['']:
+            messages.error(request, 'No tags selected')
+            return redirect('income_list')
+        
+        # Get the selected incomes and tags
+        incomes = Income.objects.filter(pk__in=income_ids, user=request.user)
+        tags = Tag.objects.filter(pk__in=tag_ids, user=request.user)
+        
+        count = 0
+        if action == 'add':
+            for income in incomes:
+                for tag in tags:
+                    income.tags.add(tag)
+                count += 1
+            messages.success(request, f'Tags added to {count} income transaction(s)')
+        elif action == 'remove':
+            for income in incomes:
+                for tag in tags:
+                    income.tags.remove(tag)
+                count += 1
+            messages.success(request, f'Tags removed from {count} income transaction(s)')
+        else:
+            messages.error(request, 'Invalid action')
+        
+        return redirect('income_list')
+    
+    return redirect('income_list')
+
+
+@login_required
+def income_bulk_delete(request):
+    """Bulk delete selected incomes"""
+    if request.method == 'POST':
+        income_ids = request.POST.getlist('income_ids')
+        
+        if not income_ids:
+            messages.error(request, 'No income transactions selected')
+            return redirect('income_list')
+        
+        # Get the selected incomes
+        incomes = Income.objects.filter(pk__in=income_ids, user=request.user)
+        
+        # Separate Opening Balance transactions from regular ones
+        protected_count = 0
+        deleted_count = 0
+        
+        # Delete each income individually to trigger model's delete method
+        # which handles balance updates, but skip Opening Balance transactions
+        for income in incomes:
+            if income.is_opening_balance():
+                protected_count += 1
+            else:
+                income.delete()
+                deleted_count += 1
+        
+        # Show appropriate messages
+        if deleted_count > 0:
+            messages.success(request, f'Successfully deleted {deleted_count} income transaction(s)')
+        if protected_count > 0:
+            messages.warning(request, f'Skipped {protected_count} Opening Balance transaction(s) - these are protected and can only be changed by editing the account')
+        
+        if deleted_count == 0 and protected_count == 0:
+            messages.info(request, 'No transactions were deleted')
+        
+        return redirect('income_list')
+    
+    return redirect('income_list')
 
 
 # Expense Views
@@ -741,6 +904,7 @@ def expense_list(request):
     account_filter = request.GET.get('account')
     min_amount = request.GET.get('min_amount')
     max_amount = request.GET.get('max_amount')
+    tag_filters = request.GET.getlist('tag')  # Get list of tag IDs
     
     if category_filter:
         expenses = expenses.filter(category_id=category_filter)
@@ -754,10 +918,13 @@ def expense_list(request):
         expenses = expenses.filter(amount__gte=Decimal(min_amount))
     if max_amount:
         expenses = expenses.filter(amount__lte=Decimal(max_amount))
+    if tag_filters:
+        expenses = expenses.filter(tags__id__in=tag_filters).distinct()
     
     total_expense = expenses.aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
     categories = Category.objects.filter(user=request.user, category_type='expense')
     accounts = BankAccount.objects.filter(user=request.user)
+    all_tags = Tag.objects.filter(user=request.user).order_by('name')
     
     # Get month name if month_filter exists
     month_name = None
@@ -774,6 +941,8 @@ def expense_list(request):
         'selected_month': month_filter,
         'selected_year': year_filter,
         'month_name': month_name,
+        'all_tags': all_tags,
+        'selected_tags': [int(t) for t in tag_filters if t],
     }
     return render(request, 'budget/expense_list.html', context)
 
@@ -787,11 +956,41 @@ def expense_create(request):
             expense = form.save(commit=False)
             expense.user = request.user
             expense.save()
+            
+            # Handle tags
+            tags_input = form.cleaned_data.get('tags_input', '')
+            if tags_input:
+                tag_names = [tag.strip() for tag in tags_input.split(',') if tag.strip()]
+                for tag_name in tag_names:
+                    # Normalize to camelCase
+                    normalized_name = Tag.normalize_tag_name(tag_name)
+                    if normalized_name:
+                        # Get or create tag (case-insensitive search)
+                        tag, created = Tag.objects.get_or_create(
+                            user=request.user,
+                            name__iexact=normalized_name,
+                            defaults={
+                                'name': normalized_name,
+                                'color': get_random_tag_color()
+                            }
+                        )
+                        # If tag was found with different casing, use existing
+                        if not created:
+                            tag = Tag.objects.get(user=request.user, name__iexact=normalized_name)
+                        expense.tags.add(tag)
+            
             messages.success(request, 'Expense added successfully!')
             return redirect('expense_list')
     else:
         form = ExpenseForm(user=request.user)
-    return render(request, 'budget/expense_form.html', {'form': form, 'action': 'Add'})
+    
+    # Get all existing tags for autocomplete
+    existing_tags = Tag.objects.filter(user=request.user).order_by('name').values_list('name', flat=True)
+    return render(request, 'budget/expense_form.html', {
+        'form': form,
+        'action': 'Add',
+        'existing_tags': list(existing_tags)
+    })
 
 
 @login_required
@@ -801,12 +1000,45 @@ def expense_update(request, pk):
     if request.method == 'POST':
         form = ExpenseForm(request.POST, instance=expense, user=request.user)
         if form.is_valid():
-            form.save()
+            expense = form.save()
+            
+            # Update tags atomically
+            tags_input = form.cleaned_data.get('tags_input', '')
+            tag_objects = []
+            if tags_input:
+                tag_names = [tag.strip() for tag in tags_input.split(',') if tag.strip()]
+                for tag_name in tag_names:
+                    # Normalize to camelCase
+                    normalized_name = Tag.normalize_tag_name(tag_name)
+                    if normalized_name:
+                        # Get or create tag (case-insensitive search)
+                        tag, created = Tag.objects.get_or_create(
+                            user=request.user,
+                            name__iexact=normalized_name,
+                            defaults={
+                                'name': normalized_name,
+                                'color': get_random_tag_color()
+                            }
+                        )
+                        # If tag was found with different casing, use existing
+                        if not created:
+                            tag = Tag.objects.get(user=request.user, name__iexact=normalized_name)
+                        tag_objects.append(tag)
+            # Atomic replace - either set new tags or clear all
+            expense.tags.set(tag_objects)
+            
             messages.success(request, 'Expense updated successfully!')
             return redirect('expense_list')
     else:
         form = ExpenseForm(instance=expense, user=request.user)
-    return render(request, 'budget/expense_form.html', {'form': form, 'action': 'Update'})
+    
+    # Get all existing tags for autocomplete
+    existing_tags = Tag.objects.filter(user=request.user).order_by('name').values_list('name', flat=True)
+    return render(request, 'budget/expense_form.html', {
+        'form': form,
+        'action': 'Update',
+        'existing_tags': list(existing_tags)
+    })
 
 
 @login_required
@@ -819,6 +1051,72 @@ def expense_delete(request, pk):
         messages.success(request, 'Expense deleted successfully!')
         return redirect('expense_list')
     return render(request, 'budget/expense_confirm_delete.html', {'expense': expense})
+
+
+@login_required
+def expense_bulk_tag(request):
+    """Bulk add or remove tags from selected expenses"""
+    if request.method == 'POST':
+        expense_ids = request.POST.getlist('expense_ids')
+        action = request.POST.get('action')
+        tag_ids = request.POST.get('tags', '').split(',')
+        
+        if not expense_ids:
+            messages.error(request, 'No expense transactions selected')
+            return redirect('expense_list')
+        
+        if not tag_ids or tag_ids == ['']:
+            messages.error(request, 'No tags selected')
+            return redirect('expense_list')
+        
+        # Get the selected expenses and tags
+        expenses = Expense.objects.filter(pk__in=expense_ids, user=request.user)
+        tags = Tag.objects.filter(pk__in=tag_ids, user=request.user)
+        
+        count = 0
+        if action == 'add':
+            for expense in expenses:
+                for tag in tags:
+                    expense.tags.add(tag)
+                count += 1
+            messages.success(request, f'Tags added to {count} expense transaction(s)')
+        elif action == 'remove':
+            for expense in expenses:
+                for tag in tags:
+                    expense.tags.remove(tag)
+                count += 1
+            messages.success(request, f'Tags removed from {count} expense transaction(s)')
+        else:
+            messages.error(request, 'Invalid action')
+        
+        return redirect('expense_list')
+    
+    return redirect('expense_list')
+
+
+@login_required
+def expense_bulk_delete(request):
+    """Bulk delete selected expenses"""
+    if request.method == 'POST':
+        expense_ids = request.POST.getlist('expense_ids')
+        
+        if not expense_ids:
+            messages.error(request, 'No expense transactions selected')
+            return redirect('expense_list')
+        
+        # Get the selected expenses
+        expenses = Expense.objects.filter(pk__in=expense_ids, user=request.user)
+        count = expenses.count()
+        
+        # Delete each expense individually to trigger model's delete method
+        # which handles balance updates
+        for expense in expenses:
+            expense.delete()
+        
+        messages.success(request, f'Successfully deleted {count} expense transaction(s)')
+        return redirect('expense_list')
+    
+    return redirect('expense_list')
 
 
 # Budget Views
@@ -1057,6 +1355,7 @@ def monthly_summary(request):
     """Monthly summary report"""
     month_select = request.GET.get('month_select', None)
     year_select = request.GET.get('year_select', None)
+    tag_filters = request.GET.getlist('tag')  # Get list of tag IDs
     
     if month_select and year_select:
         try:
@@ -1071,11 +1370,17 @@ def monthly_summary(request):
     
     # Income summary
     incomes = Income.objects.filter(user=request.user, date__year=year, date__month=month)
+    if tag_filters:
+        # Filter by multiple tags (OR logic - transactions with ANY of the selected tags)
+        incomes = incomes.filter(tags__id__in=tag_filters).distinct()
     income_by_category = incomes.values('category__name').annotate(total=Sum('amount')).order_by('-total')
     total_income = incomes.aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
     
     # Expense summary
     expenses = Expense.objects.filter(user=request.user, date__year=year, date__month=month)
+    if tag_filters:
+        # Filter by multiple tags (OR logic - transactions with ANY of the selected tags)
+        expenses = expenses.filter(tags__id__in=tag_filters).distinct()
     expense_by_category_raw = expenses.values('category__name', 'category_id').annotate(total=Sum('amount')).order_by('-total')
     total_expense = expenses.aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
     
@@ -1185,6 +1490,9 @@ def monthly_summary(request):
     earliest_account = BankAccount.objects.filter(user=request.user).order_by('account_setup_date').first()
     min_date = earliest_account.account_setup_date if earliest_account else None
     
+    # Get all user tags for filter dropdown
+    all_tags = Tag.objects.filter(user=request.user).order_by('name')
+    
     context = {
         'year': year,
         'month': month,
@@ -1198,6 +1506,8 @@ def monthly_summary(request):
         'account_balances': account_balances,
         'total_balance': total_balance,
         'min_date': min_date,
+        'all_tags': all_tags,
+        'selected_tags': [int(t) for t in tag_filters if t],  # Convert to integers
     }
     
     return render(request, 'budget/monthly_summary.html', context)
@@ -1207,33 +1517,42 @@ def monthly_summary(request):
 def annual_summary(request):
     """Annual summary report"""
     year = request.GET.get('year', 2025)
+    tag_filters = request.GET.getlist('tag')  # Get list of tag IDs
     
     try:
         year = int(year)
     except:
         year = 2025
     
-    # Annual totals
-    total_income = Income.objects.filter(
-        user=request.user, date__year=year
-    ).aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+    # Annual totals with tag filtering
+    income_query = Income.objects.filter(user=request.user, date__year=year)
+    if tag_filters:
+        income_query = income_query.filter(tags__id__in=tag_filters).distinct()
+    total_income = income_query.aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
     
-    total_expense = Expense.objects.filter(
-        user=request.user, date__year=year
-    ).aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+    expense_query = Expense.objects.filter(user=request.user, date__year=year)
+    if tag_filters:
+        expense_query = expense_query.filter(tags__id__in=tag_filters).distinct()
+    total_expense = expense_query.aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
     
     annual_savings = total_income - total_expense
     
-    # Monthly breakdown
+    # Monthly breakdown with tag filtering
     monthly_data = []
     for month in range(1, 13):
-        month_income = Income.objects.filter(
+        month_income_query = Income.objects.filter(
             user=request.user, date__year=year, date__month=month
-        ).aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+        )
+        if tag_filters:
+            month_income_query = month_income_query.filter(tags__id__in=tag_filters).distinct()
+        month_income = month_income_query.aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
         
-        month_expense = Expense.objects.filter(
+        month_expense_query = Expense.objects.filter(
             user=request.user, date__year=year, date__month=month
-        ).aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+        )
+        if tag_filters:
+            month_expense_query = month_expense_query.filter(tags__id__in=tag_filters).distinct()
+        month_expense = month_expense_query.aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
         
         # Calculate monthly investments (income + transfers to investment accounts)
         month_investment_income = Income.objects.filter(
@@ -1260,14 +1579,16 @@ def annual_summary(request):
             'investment': month_investment,
         })
     
-    # Category breakdown
-    income_by_category = Income.objects.filter(
-        user=request.user, date__year=year
-    ).values('category__name').annotate(total=Sum('amount')).order_by('-total')
+    # Category breakdown with tag filtering
+    income_by_category_query = Income.objects.filter(user=request.user, date__year=year)
+    if tag_filters:
+        income_by_category_query = income_by_category_query.filter(tags__id__in=tag_filters).distinct()
+    income_by_category = income_by_category_query.values('category__name').annotate(total=Sum('amount')).order_by('-total')
     
-    expense_by_category = Expense.objects.filter(
-        user=request.user, date__year=year
-    ).values('category__name').annotate(total=Sum('amount')).order_by('-total')
+    expense_by_category_query = Expense.objects.filter(user=request.user, date__year=year)
+    if tag_filters:
+        expense_by_category_query = expense_by_category_query.filter(tags__id__in=tag_filters).distinct()
+    expense_by_category = expense_by_category_query.values('category__name').annotate(total=Sum('amount')).order_by('-total')
     
     # Calculate historical net worth as of end of selected year
     end_of_year = datetime(year, 12, 31).date()
@@ -1341,6 +1662,9 @@ def annual_summary(request):
     earliest_account = BankAccount.objects.filter(user=request.user).order_by('account_setup_date').first()
     min_year = earliest_account.account_setup_date.year if earliest_account else None
     
+    # Get all user tags for filter dropdown
+    all_tags = Tag.objects.filter(user=request.user).order_by('name')
+    
     context = {
         'year': year,
         'total_income': total_income,
@@ -1353,7 +1677,95 @@ def annual_summary(request):
         'net_worth': total_balance,
         'account_balances': account_balances,
         'min_year': min_year,
+        'all_tags': all_tags,
+        'selected_tags': [int(t) for t in tag_filters if t],  # Convert to integers
     }
     
     return render(request, 'budget/annual_summary.html', context)
+
+
+@login_required
+def tag_list(request):
+    """List all tags"""
+    from django.db.models import Count
+    
+    # Optimize with annotation to prevent N+1 queries
+    tags = Tag.objects.filter(user=request.user).annotate(
+        income_count=Count('incomes', distinct=True),
+        expense_count=Count('expenses', distinct=True)
+    ).order_by('name')
+    
+    # Calculate total usage
+    tag_usage = []
+    for tag in tags:
+        tag_usage.append({
+            'tag': tag,
+            'income_count': tag.income_count,
+            'expense_count': tag.expense_count,
+            'total_count': tag.income_count + tag.expense_count
+        })
+    
+    return render(request, 'budget/tag_list.html', {'tag_usage': tag_usage})
+
+
+@login_required
+def tag_create(request):
+    """Create a new tag"""
+    if request.method == 'POST':
+        form = TagForm(request.POST, user=request.user)
+        if form.is_valid():
+            tag = form.save(commit=False)
+            tag.user = request.user
+            # Randomly assign a color from available choices
+            tag.color = get_random_tag_color()
+            try:
+                tag.save()
+                messages.success(request, f'Tag "{tag.name}" created successfully!')
+                return redirect('tag_list')
+            except Exception as e:
+                messages.error(request, f'Error creating tag: {str(e)}')
+    else:
+        form = TagForm(user=request.user)
+    
+    return render(request, 'budget/tag_form.html', {'form': form, 'action': 'Create'})
+
+
+@login_required
+def tag_update(request, pk):
+    """Update a tag"""
+    tag = get_object_or_404(Tag, pk=pk, user=request.user)
+    
+    if request.method == 'POST':
+        form = TagForm(request.POST, instance=tag, user=request.user)
+        if form.is_valid():
+            tag = form.save()
+            messages.success(request, f'Tag "{tag.name}" updated successfully!')
+            return redirect('tag_list')
+    else:
+        form = TagForm(instance=tag, user=request.user)
+    
+    return render(request, 'budget/tag_form.html', {'form': form, 'action': 'Update', 'tag': tag})
+
+
+@login_required
+def tag_delete(request, pk):
+    """Delete a tag"""
+    tag = get_object_or_404(Tag, pk=pk, user=request.user)
+    
+    if request.method == 'POST':
+        tag_name = tag.name
+        tag.delete()
+        messages.success(request, f'Tag "{tag_name}" deleted successfully!')
+        return redirect('tag_list')
+    
+    # Count related transactions
+    income_count = tag.incomes.count()
+    expense_count = tag.expenses.count()
+    
+    return render(request, 'budget/tag_confirm_delete.html', {
+        'tag': tag,
+        'income_count': income_count,
+        'expense_count': expense_count,
+        'total_count': income_count + expense_count
+    })
 

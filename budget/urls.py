@@ -21,17 +21,27 @@ urlpatterns = [
     path('categories/<int:pk>/update/', views.category_update, name='category_update'),
     path('categories/<int:pk>/delete/', views.category_delete, name='category_delete'),
     
+    # Tags
+    path('tags/', views.tag_list, name='tag_list'),
+    path('tags/create/', views.tag_create, name='tag_create'),
+    path('tags/<int:pk>/update/', views.tag_update, name='tag_update'),
+    path('tags/<int:pk>/delete/', views.tag_delete, name='tag_delete'),
+    
     # Income
     path('income/', views.income_list, name='income_list'),
     path('income/create/', views.income_create, name='income_create'),
     path('income/<int:pk>/update/', views.income_update, name='income_update'),
     path('income/<int:pk>/delete/', views.income_delete, name='income_delete'),
+    path('income/bulk-tag/', views.income_bulk_tag, name='income_bulk_tag'),
+    path('income/bulk-delete/', views.income_bulk_delete, name='income_bulk_delete'),
     
     # Expenses
     path('expenses/', views.expense_list, name='expense_list'),
     path('expenses/create/', views.expense_create, name='expense_create'),
     path('expenses/<int:pk>/update/', views.expense_update, name='expense_update'),
     path('expenses/<int:pk>/delete/', views.expense_delete, name='expense_delete'),
+    path('expenses/bulk-tag/', views.expense_bulk_tag, name='expense_bulk_tag'),
+    path('expenses/bulk-delete/', views.expense_bulk_delete, name='expense_bulk_delete'),
     
     # Budgets
     path('budgets/', views.budget_list, name='budget_list'),

@@ -567,9 +567,23 @@
                     <a class="nav-link" href="{% url 'bank_account_list' %}">
                         <i class="bi bi-bank"></i> Accounts
                     </a>
-                    <a class="nav-link" href="{% url 'category_list' %}">
-                        <i class="bi bi-tags"></i> Categories
+                    
+                    <!-- Classification Section -->
+                    <a class="nav-link" data-bs-toggle="collapse" href="#classificationMenu" role="button" aria-expanded="false">
+                        <i class="bi bi-diagram-3"></i> Classification
+                        <i class="bi bi-chevron-down float-end" style="font-size: 0.75rem; margin-top: 0.2rem;"></i>
                     </a>
+                    <div class="collapse" id="classificationMenu">
+                        <div class="ps-3">
+                            <a class="nav-link" href="{% url 'category_list' %}" style="font-size: 0.8rem;">
+                                <i class="bi bi-tags"></i> Categories
+                            </a>
+                            <a class="nav-link" href="{% url 'tag_list' %}" style="font-size: 0.8rem;">
+                                <i class="bi bi-tag"></i> Tags
+                            </a>
+                        </div>
+                    </div>
+                    
                     <a class="nav-link" href="{% url 'budget_list' %}">
                         <i class="bi bi-calculator"></i> Budgets
                     </a>

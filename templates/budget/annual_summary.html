@@ -7,14 +7,127 @@
 {% block content %}
 <!-- Filter Form -->
 <div class="d-flex justify-content-end mb-3">
-    <form method="get" class="d-flex align-items-center gap-2">
+    <form method="get" class="d-flex align-items-center gap-2" id="filterForm">
         <input type="number" name="year" class="form-control form-control-sm" value="{{ year }}"
                min="2020" max="2025" style="width: 90px;">
+        
+        <!-- Tag Filter Dropdown -->
+        <div class="dropdown" style="min-width: 200px;">
+            <button class="btn btn-sm btn-light dropdown-toggle w-100 d-flex justify-content-between align-items-center" type="button" id="tagDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="height: 31px; padding: 4px 8px; border: 1px solid #dee2e6;">
+                <span id="tagDisplay" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {% if selected_tags %}
+                        {% for tag in all_tags %}
+                            {% if tag.id in selected_tags %}
+                                <span class="badge tag-badge-selected">{{ tag.name }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <span class="text-muted" style="font-size: 0.875rem;">Select Tags...</span>
+                    {% endif %}
+                </span>
+            </button>
+            <ul class="dropdown-menu py-1" aria-labelledby="tagDropdown" style="max-height: 300px; overflow-y: auto; width: auto; min-width: 180px; max-width: 280px;" onclick="event.stopPropagation();">
+                {% if all_tags %}
+                    {% for tag in all_tags %}
+                    <li class="px-2" style="margin: 0;">
+                        <div class="form-check m-0 d-flex align-items-center tag-item {% if tag.id in selected_tags %}selected{% endif %}" style="padding-left: 0;">
+                            <input class="form-check-input tag-checkbox" type="checkbox" name="tag" value="{{ tag.id }}" id="tag{{ tag.id }}" {% if tag.id in selected_tags %}checked{% endif %} style="margin-top: 0; width: 14px; height: 14px;">
+                            <label class="form-check-label ms-2" for="tag{{ tag.id }}" style="cursor: pointer; font-size: 0.8rem; user-select: none; white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                                {{ tag.name }}
+                            </label>
+                        </div>
+                    </li>
+                    {% endfor %}
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li class="px-2 py-1">
+                        <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 m-0" onclick="clearAllTags()" style="font-size: 0.8rem;">Clear All</button>
+                    </li>
+                {% else %}
+                    <li class="px-2 py-1 text-muted small">No tags available</li>
+                {% endif %}
+            </ul>
+        </div>
+        
+        <style>
+            .tag-badge-selected {
+                background-color: #0d6efd;
+                color: white;
+                font-size: 0.7rem;
+                padding: 2px 6px;
+                border-radius: 4px;
+                margin-right: 3px;
+                font-weight: 500;
+            }
+            .dropdown-toggle::after {
+                margin-left: 0 !important;
+            }
+            .tag-item {
+                transition: background-color 0.15s ease;
+                border-radius: 4px;
+                padding: 3px 8px;
+                margin: 1px 0;
+            }
+            .tag-item:hover {
+                background-color: #f8f9fa;
+            }
+            .tag-item.selected {
+                background-color: #e7f3ff;
+            }
+            .tag-item.selected label {
+                color: #0d6efd;
+                font-weight: 500;
+            }
+        </style>
+        
         <button type="submit" class="btn btn-primary btn-sm">
             <i class="bi bi-filter"></i> Filter
         </button>
     </form>
 </div>
+
+<script>
+function updateTagDisplay() {
+    const checkboxes = document.querySelectorAll('.tag-checkbox:checked');
+    const display = document.getElementById('tagDisplay');
+    
+    if (checkboxes.length === 0) {
+        display.innerHTML = '<span class="text-muted" style="font-size: 0.875rem;">Select Tags...</span>';
+    } else {
+        const badges = Array.from(checkboxes).map(cb => {
+            const label = document.querySelector(`label[for="${cb.id}"]`).textContent.trim();
+            return `<span class="badge tag-badge-selected">${label}</span>`;
+        });
+        display.innerHTML = badges.join('');
+    }
+    // Maintain the flex and overflow styles
+    display.style.flex = '1';
+    display.style.overflow = 'hidden';
+    display.style.textOverflow = 'ellipsis';
+    display.style.whiteSpace = 'nowrap';
+}
+
+function clearAllTags() {
+    document.querySelectorAll('.tag-checkbox').forEach(cb => {
+        cb.checked = false;
+        cb.closest('.tag-item').classList.remove('selected');
+    });
+    updateTagDisplay();
+}
+
+// Update display when checkboxes change
+document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        // Toggle selected class on the parent tag-item
+        const tagItem = this.closest('.tag-item');
+        if (this.checked) {
+            tagItem.classList.add('selected');
+        } else {
+            tagItem.classList.remove('selected');
+        }
+        updateTagDisplay();
+    });
+});
+</script>
 
 <!-- Financial Summary -->
 <div class="row mb-3">
