@@ -790,6 +790,73 @@ def income_update(request, pk):
 
 
 @login_required
+def income_clone(request, pk):
+    """Clone an income transaction"""
+    original_income = get_object_or_404(Income, pk=pk, user=request.user)
+    
+    if request.method == 'POST':
+        form = IncomeForm(request.POST, user=request.user)
+        if form.is_valid():
+            income = form.save(commit=False)
+            income.user = request.user
+            income.save()
+            
+            # Handle tags
+            tags_input = form.cleaned_data.get('tags_input', '')
+            if tags_input:
+                tag_names = [tag.strip() for tag in tags_input.split(',') if tag.strip()]
+                for tag_name in tag_names:
+                    # Normalize to camelCase
+                    normalized_name = Tag.normalize_tag_name(tag_name)
+                    if normalized_name:
+                        # Get or create tag (case-insensitive search)
+                        tag, created = Tag.objects.get_or_create(
+                            user=request.user,
+                            name__iexact=normalized_name,
+                            defaults={
+                                'name': normalized_name,
+                                'color': get_random_tag_color()
+                            }
+                        )
+                        # If tag was found with different casing, use existing
+                        if not created:
+                            tag = Tag.objects.get(user=request.user, name__iexact=normalized_name)
+                        income.tags.add(tag)
+            
+            messages.success(request, 'Income cloned successfully!')
+            return redirect('income_list')
+    else:
+        # Get original tags
+        original_tags = original_income.tags.all()
+        tags_string = ', '.join([tag.name for tag in original_tags])
+        
+        # Create a form with original data but without the instance (so it creates a new one)
+        form = IncomeForm(
+            initial={
+                'category': original_income.category,
+                'bank_account': original_income.bank_account,
+                'amount': original_income.amount,
+                'description': f"Copy of: {original_income.description}",
+                'date': original_income.date,
+                'tags_input': tags_string,
+            },
+            user=request.user
+        )
+        
+        messages.info(request, f'Cloning income transaction. Review and modify as needed before saving.')
+    
+    # Get all existing tags for autocomplete
+    existing_tags = Tag.objects.filter(user=request.user).order_by('name').values_list('name', flat=True)
+    
+    return render(request, 'budget/income_form.html', {
+        'form': form,
+        'action': 'Clone',
+        'existing_tags': list(existing_tags),
+        'is_clone': True,
+    })
+
+
+@login_required
 def income_delete(request, pk):
     """Delete an income"""
     income = get_object_or_404(Income, pk=pk, user=request.user)
@@ -1038,6 +1105,73 @@ def expense_update(request, pk):
         'form': form,
         'action': 'Update',
         'existing_tags': list(existing_tags)
+    })
+
+
+@login_required
+def expense_clone(request, pk):
+    """Clone an expense transaction"""
+    original_expense = get_object_or_404(Expense, pk=pk, user=request.user)
+    
+    if request.method == 'POST':
+        form = ExpenseForm(request.POST, user=request.user)
+        if form.is_valid():
+            expense = form.save(commit=False)
+            expense.user = request.user
+            expense.save()
+            
+            # Handle tags
+            tags_input = form.cleaned_data.get('tags_input', '')
+            if tags_input:
+                tag_names = [tag.strip() for tag in tags_input.split(',') if tag.strip()]
+                for tag_name in tag_names:
+                    # Normalize to camelCase
+                    normalized_name = Tag.normalize_tag_name(tag_name)
+                    if normalized_name:
+                        # Get or create tag (case-insensitive search)
+                        tag, created = Tag.objects.get_or_create(
+                            user=request.user,
+                            name__iexact=normalized_name,
+                            defaults={
+                                'name': normalized_name,
+                                'color': get_random_tag_color()
+                            }
+                        )
+                        # If tag was found with different casing, use existing
+                        if not created:
+                            tag = Tag.objects.get(user=request.user, name__iexact=normalized_name)
+                        expense.tags.add(tag)
+            
+            messages.success(request, 'Expense cloned successfully!')
+            return redirect('expense_list')
+    else:
+        # Get original tags
+        original_tags = original_expense.tags.all()
+        tags_string = ', '.join([tag.name for tag in original_tags])
+        
+        # Create a form with original data but without the instance (so it creates a new one)
+        form = ExpenseForm(
+            initial={
+                'category': original_expense.category,
+                'bank_account': original_expense.bank_account,
+                'amount': original_expense.amount,
+                'description': f"Copy of: {original_expense.description}",
+                'date': original_expense.date,
+                'tags_input': tags_string,
+            },
+            user=request.user
+        )
+        
+        messages.info(request, f'Cloning expense transaction. Review and modify as needed before saving.')
+    
+    # Get all existing tags for autocomplete
+    existing_tags = Tag.objects.filter(user=request.user).order_by('name').values_list('name', flat=True)
+    
+    return render(request, 'budget/expense_form.html', {
+        'form': form,
+        'action': 'Clone',
+        'existing_tags': list(existing_tags),
+        'is_clone': True,
     })
 
 
@@ -1335,6 +1469,41 @@ def transfer_update(request, pk):
     else:
         form = TransferForm(instance=transfer, user=request.user)
     return render(request, 'budget/transfer_form.html', {'form': form, 'action': 'Update'})
+
+
+@login_required
+def transfer_clone(request, pk):
+    """Clone a transfer transaction"""
+    original_transfer = get_object_or_404(Transfer, pk=pk, user=request.user)
+    
+    if request.method == 'POST':
+        form = TransferForm(request.POST, user=request.user)
+        if form.is_valid():
+            transfer = form.save(commit=False)
+            transfer.user = request.user
+            transfer.save()
+            messages.success(request, 'Transfer cloned successfully!')
+            return redirect('transfer_list')
+    else:
+        # Create a form with original data but without the instance (so it creates a new one)
+        form = TransferForm(
+            initial={
+                'from_account': original_transfer.from_account,
+                'to_account': original_transfer.to_account,
+                'amount': original_transfer.amount,
+                'description': f"Copy of: {original_transfer.description}" if original_transfer.description else "Copy of transfer",
+                'date': original_transfer.date,
+            },
+            user=request.user
+        )
+        
+        messages.info(request, f'Cloning transfer transaction. Review and modify as needed before saving.')
+    
+    return render(request, 'budget/transfer_form.html', {
+        'form': form,
+        'action': 'Clone',
+        'is_clone': True,
+    })
 
 
 @login_required

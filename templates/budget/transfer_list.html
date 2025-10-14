@@ -105,6 +105,11 @@
                                title="Edit Transfer">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            <a href="{% url 'transfer_clone' transfer.pk %}" 
+                               class="btn btn-sm btn-outline-success" 
+                               title="Clone Transfer">
+                                <i class="bi bi-files"></i>
+                            </a>
                             <a href="{% url 'transfer_delete' transfer.pk %}" 
                                class="btn btn-sm btn-outline-danger" 
                                title="Delete Transfer">

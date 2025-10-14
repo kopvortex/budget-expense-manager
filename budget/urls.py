@@ -31,6 +31,7 @@ urlpatterns = [
     path('income/', views.income_list, name='income_list'),
     path('income/create/', views.income_create, name='income_create'),
     path('income/<int:pk>/update/', views.income_update, name='income_update'),
+    path('income/<int:pk>/clone/', views.income_clone, name='income_clone'),
     path('income/<int:pk>/delete/', views.income_delete, name='income_delete'),
     path('income/bulk-tag/', views.income_bulk_tag, name='income_bulk_tag'),
     path('income/bulk-delete/', views.income_bulk_delete, name='income_bulk_delete'),
@@ -39,6 +40,7 @@ urlpatterns = [
     path('expenses/', views.expense_list, name='expense_list'),
     path('expenses/create/', views.expense_create, name='expense_create'),
     path('expenses/<int:pk>/update/', views.expense_update, name='expense_update'),
+    path('expenses/<int:pk>/clone/', views.expense_clone, name='expense_clone'),
     path('expenses/<int:pk>/delete/', views.expense_delete, name='expense_delete'),
     path('expenses/bulk-tag/', views.expense_bulk_tag, name='expense_bulk_tag'),
     path('expenses/bulk-delete/', views.expense_bulk_delete, name='expense_bulk_delete'),
@@ -54,6 +56,7 @@ urlpatterns = [
     path('transfers/', views.transfer_list, name='transfer_list'),
     path('transfers/create/', views.transfer_create, name='transfer_create'),
     path('transfers/<int:pk>/update/', views.transfer_update, name='transfer_update'),
+    path('transfers/<int:pk>/clone/', views.transfer_clone, name='transfer_clone'),
     path('transfers/<int:pk>/delete/', views.transfer_delete, name='transfer_delete'),
     
     # Reports

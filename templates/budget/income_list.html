@@ -208,15 +208,18 @@
                             </td>
                             <td class="text-end text-success fw-bold">${{ income.amount|floatformat:2 }}</td>
                             <td class="text-center">
-                                <a href="{% url 'income_update' income.pk %}" class="btn btn-sm btn-outline-primary">
+                                <a href="{% url 'income_update' income.pk %}" class="btn btn-sm btn-outline-primary" title="Edit">
                                     <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'income_clone' income.pk %}" class="btn btn-sm btn-outline-success" title="Clone">
+                                    <i class="bi bi-files"></i>
                                 </a>
                                 {% if income.is_opening_balance %}
                                     <button class="btn btn-sm btn-outline-secondary" disabled title="Opening Balance is protected - edit account to change">
                                         <i class="bi bi-lock-fill"></i>
                                     </button>
                                 {% else %}
-                                    <a href="{% url 'income_delete' income.pk %}" class="btn btn-sm btn-outline-danger">
+                                    <a href="{% url 'income_delete' income.pk %}" class="btn btn-sm btn-outline-danger" title="Delete">
                                         <i class="bi bi-trash"></i>
                                     </a>
                                 {% endif %}
