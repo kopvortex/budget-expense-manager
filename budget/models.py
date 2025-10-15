@@ -1,5 +1,6 @@
 from django.db import models, transaction
-from django.db.models import F
+from django.db.models import F, Sum, Q
+from django.db.models.functions import Coalesce
 from django.contrib.auth.models import User
 from django.utils import timezone
 from decimal import Decimal
@@ -200,12 +201,15 @@ class Income(models.Model):
         is_new = self.pk is None
         old_amount = None
         old_account = None
+        is_opening_balance_update = False
         
         if not is_new:
             # Lock the row for update to prevent race conditions
             old_income = Income.objects.select_for_update().get(pk=self.pk)
             old_amount = old_income.amount
             old_account = old_income.bank_account
+            # Check if this is an opening balance transaction being updated
+            is_opening_balance_update = self.is_opening_balance()
         
         super().save(*args, **kwargs)
         
@@ -232,13 +236,44 @@ class Income(models.Model):
                     old_account.refresh_from_db()
                     self.bank_account.refresh_from_db()
                 elif old_amount != self.amount:
-                    # Amount changed - adjust balance
-                    amount_diff = self.amount - old_amount
-                    BankAccount.objects.filter(pk=self.bank_account.pk).update(
-                        balance=F('balance') + amount_diff
-                    )
-                    # Refresh the instance
-                    self.bank_account.refresh_from_db()
+                    # Amount changed
+                    if is_opening_balance_update:
+                        # For opening balance updates, recalculate entire balance from scratch
+                        # to fix any potential corruption from before the fix was deployed
+                        # Using Coalesce to handle NULL values directly in the database
+                        
+                        all_incomes = Income.objects.filter(
+                            bank_account=self.bank_account
+                        ).aggregate(total=Coalesce(Sum('amount'), Decimal('0')))['total']
+                        
+                        all_expenses = Expense.objects.filter(
+                            bank_account=self.bank_account
+                        ).aggregate(total=Coalesce(Sum('amount'), Decimal('0')))['total']
+                        
+                        transfers_in = Transfer.objects.filter(
+                            to_account=self.bank_account
+                        ).aggregate(total=Coalesce(Sum('amount'), Decimal('0')))['total']
+                        
+                        transfers_out = Transfer.objects.filter(
+                            from_account=self.bank_account
+                        ).aggregate(total=Coalesce(Sum('amount'), Decimal('0')))['total']
+                        
+                        # Calculate correct balance
+                        correct_balance = all_incomes - all_expenses + transfers_in - transfers_out
+                        
+                        # Only update if balance needs correction (avoid unnecessary write)
+                        if self.bank_account.balance != correct_balance:
+                            BankAccount.objects.filter(pk=self.bank_account.pk).update(
+                                balance=correct_balance
+                            )
+                            self.bank_account.refresh_from_db()
+                    else:
+                        # Normal amount change - use differential approach
+                        amount_diff = self.amount - old_amount
+                        BankAccount.objects.filter(pk=self.bank_account.pk).update(
+                            balance=F('balance') + amount_diff
+                        )
+                        self.bank_account.refresh_from_db()
     
     @transaction.atomic
     def delete(self, *args, **kwargs):

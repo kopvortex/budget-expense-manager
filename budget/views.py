@@ -3,6 +3,7 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Sum, Q
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -571,27 +572,28 @@ def bank_account_update(request, pk):
                     
                     # Calculate net effect of all OTHER transactions (excluding opening balance)
                     # so we can preserve them when creating the new opening balance transaction
+                    # Using Coalesce to handle NULL values directly in the database
                     other_incomes = Income.objects.filter(
                         user=request.user,
                         bank_account=account
                     ).exclude(category__name='Opening Balance').aggregate(
-                        total=Sum('amount')
-                    )['total'] or Decimal('0')
+                        total=Coalesce(Sum('amount'), Decimal('0'))
+                    )['total']
                     
                     other_expenses = Expense.objects.filter(
                         user=request.user,
                         bank_account=account
-                    ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+                    ).aggregate(total=Coalesce(Sum('amount'), Decimal('0')))['total']
                     
                     transfers_in = Transfer.objects.filter(
                         user=request.user,
                         to_account=account
-                    ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+                    ).aggregate(total=Coalesce(Sum('amount'), Decimal('0')))['total']
                     
                     transfers_out = Transfer.objects.filter(
                         user=request.user,
                         from_account=account
-                    ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+                    ).aggregate(total=Coalesce(Sum('amount'), Decimal('0')))['total']
                     
                     # Net effect of other transactions
                     other_transactions_net = other_incomes - other_expenses + transfers_in - transfers_out
