@@ -569,11 +569,38 @@ def bank_account_update(request, pk):
                         'is_active', 'opening_balance', 'updated_at'
                     ])
                     
-                    # Set balance to 0 temporarily
-                    current_balance = account.balance
-                    BankAccount.objects.filter(pk=account.pk).update(balance=Decimal('0'))
+                    # Calculate net effect of all OTHER transactions (excluding opening balance)
+                    # so we can preserve them when creating the new opening balance transaction
+                    other_incomes = Income.objects.filter(
+                        user=request.user,
+                        bank_account=account
+                    ).exclude(category__name='Opening Balance').aggregate(
+                        total=Sum('amount')
+                    )['total'] or Decimal('0')
+                    
+                    other_expenses = Expense.objects.filter(
+                        user=request.user,
+                        bank_account=account
+                    ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+                    
+                    transfers_in = Transfer.objects.filter(
+                        user=request.user,
+                        to_account=account
+                    ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+                    
+                    transfers_out = Transfer.objects.filter(
+                        user=request.user,
+                        from_account=account
+                    ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+                    
+                    # Net effect of other transactions
+                    other_transactions_net = other_incomes - other_expenses + transfers_in - transfers_out
+                    
+                    # Set balance to the net of other transactions (temporarily, before adding OB)
+                    BankAccount.objects.filter(pk=account.pk).update(balance=other_transactions_net)
                     
                     # Create new opening balance income transaction
+                    # This will add the opening balance amount to the current balance
                     Income.objects.create(
                         user=request.user,
                         category=initial_category,
