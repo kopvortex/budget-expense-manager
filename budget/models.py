@@ -188,11 +188,11 @@ class Income(models.Model):
             return False
         # Check if this is an Opening Balance transaction by:
         # 1. Date matches account setup date
-        # 2. Description contains "Opening Balance"
+        # 2. Description contains "opening balance" (case-insensitive)
         # Note: We don't check amount because opening balance can be edited
         return (
             self.date == self.bank_account.account_setup_date and
-            'Opening Balance' in self.description
+            'opening balance' in self.description.lower()
         )
     
     @transaction.atomic

@@ -550,12 +550,44 @@ def bank_account_update(request, pk):
                         f'Current balance recalculated.'
                     )
                 except Income.DoesNotExist:
-                    messages.warning(request, 'Could not find opening balance transaction to update.')
-                    # Still save the account updates
+                    # No existing opening balance transaction found - create a new one
+                    # Get or create "Opening Balance" income category
+                    initial_category, created = Category.objects.get_or_create(
+                        user=request.user,
+                        name='Opening Balance',
+                        defaults={'category_type': 'income'}
+                    )
+                    
+                    # Ensure the category is set to income type
+                    if initial_category.category_type != 'income':
+                        initial_category.category_type = 'income'
+                        initial_category.save()
+                    
+                    # Save account changes first
                     updated_account.save(update_fields=[
                         'name', 'account_type', 'bank_name', 'account_number', 
                         'is_active', 'opening_balance', 'updated_at'
                     ])
+                    
+                    # Set balance to 0 temporarily
+                    current_balance = account.balance
+                    BankAccount.objects.filter(pk=account.pk).update(balance=Decimal('0'))
+                    
+                    # Create new opening balance income transaction
+                    Income.objects.create(
+                        user=request.user,
+                        category=initial_category,
+                        bank_account=account,
+                        amount=new_opening_balance,
+                        description=f'Opening balance for {updated_account.name}',
+                        date=old_setup_date
+                    )
+                    
+                    messages.success(
+                        request, 
+                        f'Opening balance set to ${new_opening_balance}. '
+                        f'Opening balance transaction created. Current balance recalculated.'
+                    )
             else:
                 # No opening balance change - just save account updates
                 updated_account.save(update_fields=[
