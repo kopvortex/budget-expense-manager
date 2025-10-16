@@ -150,8 +150,9 @@ def dashboard(request):
         accounts_by_type[acc_type]['count'] += 1
         accounts_by_type[acc_type]['accounts'].append(account)
     
-    # Sort by balance (descending)
-    accounts_by_type = dict(sorted(accounts_by_type.items(), key=lambda x: x[1]['balance'], reverse=True))
+    # Sort by account type in specific order: credit, checking, investment, savings, cash
+    type_order = {'credit': 1, 'checking': 2, 'investment': 3, 'savings': 4, 'cash': 5}
+    accounts_by_type = dict(sorted(accounts_by_type.items(), key=lambda x: type_order.get(x[0], 99)))
     
     # Recent transactions
     recent_incomes = Income.objects.filter(user=user)[:5]
@@ -470,8 +471,9 @@ def bank_account_list(request):
         accounts_by_type[acc_type]['count'] += 1
         accounts_by_type[acc_type]['accounts'].append(account)
     
-    # Sort by balance (descending)
-    accounts_by_type = dict(sorted(accounts_by_type.items(), key=lambda x: x[1]['balance'], reverse=True))
+    # Sort by account type in specific order: credit, checking, investment, savings, cash
+    type_order = {'credit': 1, 'checking': 2, 'investment': 3, 'savings': 4, 'cash': 5}
+    accounts_by_type = dict(sorted(accounts_by_type.items(), key=lambda x: type_order.get(x[0], 99)))
     
     return render(request, 'budget/bank_account_list.html', {
         'accounts': accounts,
