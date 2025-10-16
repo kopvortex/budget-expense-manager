@@ -268,13 +268,14 @@ def dashboard(request):
     
     import json
     
-    # Calculate net worth history (end of each month for past year)
+    # Calculate net worth history (end of each month from earliest account)
     networth_history = []
     from dateutil.relativedelta import relativedelta
     
-    # Go back 12 months
-    start_date = today - relativedelta(months=12)
-    current_date = start_date.replace(day=1)
+    # Find the earliest account setup date, or use today if no accounts
+    earliest_account = BankAccount.objects.filter(user=user).order_by('account_setup_date').first()
+    start_date = earliest_account.account_setup_date.replace(day=1) if earliest_account and earliest_account.account_setup_date else today
+    current_date = start_date
     
     while current_date <= today:
         # Calculate net worth at end of this month

@@ -62,9 +62,9 @@
                 <div class="d-flex justify-content-between align-items-start mb-3">
                     <h5 class="mb-0"><i class="bi bi-graph-up"></i> Net Worth Over Time</h5>
                     <div class="btn-group btn-group-sm" role="group" style="font-size: 0.7rem;">
-                        <button type="button" class="btn btn-outline-secondary px-2 py-1" onclick="updatePeriod('1M')" id="btn-1M" style="font-size: 0.7rem;">1M</button>
+                        <button type="button" class="btn btn-outline-secondary px-2 py-1 active" onclick="updatePeriod('1M')" id="btn-1M" style="font-size: 0.7rem;">1M</button>
                         <button type="button" class="btn btn-outline-secondary px-2 py-1" onclick="updatePeriod('3M')" id="btn-3M" style="font-size: 0.7rem;">3M</button>
-                        <button type="button" class="btn btn-outline-secondary px-2 py-1 active" onclick="updatePeriod('6M')" id="btn-6M" style="font-size: 0.7rem;">6M</button>
+                        <button type="button" class="btn btn-outline-secondary px-2 py-1" onclick="updatePeriod('6M')" id="btn-6M" style="font-size: 0.7rem;">6M</button>
                         <button type="button" class="btn btn-outline-secondary px-2 py-1" onclick="updatePeriod('YTD')" id="btn-YTD" style="font-size: 0.7rem;">YTD</button>
                         <button type="button" class="btn btn-outline-secondary px-2 py-1" onclick="updatePeriod('ALL')" id="btn-ALL" style="font-size: 0.7rem;">All</button>
                     </div>
@@ -252,7 +252,7 @@
 // Net Worth Over Time Chart
 let networthChart;
 let networthData = {{ networth_data|safe }};
-let currentPeriod = '6M';
+let currentPeriod = '1M';
 
 function updatePeriod(period) {
     currentPeriod = period;
@@ -339,7 +339,7 @@ function filterDataByPeriod(data, period) {
 
 // Initialize Net Worth Chart
 const networthCtx = document.getElementById('networthChart').getContext('2d');
-let initialData = filterDataByPeriod(networthData, '6M');
+let initialData = filterDataByPeriod(networthData, '1M');
 
 networthChart = new Chart(networthCtx, {
     type: 'line',
