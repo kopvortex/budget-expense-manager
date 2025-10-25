@@ -165,7 +165,7 @@
             <input type="hidden" name="action" id="bulkAction">
             <input type="hidden" name="tags" id="bulkTags">
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table clean-table">
                     <thead>
                         <tr>
                             <th style="width: 40px;">
@@ -186,26 +186,26 @@
                             <td>
                                 <input type="checkbox" class="form-check-input expense-checkbox" name="expense_ids" value="{{ expense.pk }}" onchange="updateBulkActions()">
                             </td>
-                            <td>{{ expense.date }}</td>
-                            <td>{{ expense.description|truncatewords:8 }}</td>
-                            <td><span class="badge bg-warning">{{ expense.category.name }}</span></td>
-                            <td>{{ expense.bank_account.name|default:"N/A" }}</td>
+                            <td><small class="text-muted">{{ expense.date|date:"M d, Y" }}</small></td>
+                            <td>{{ expense.description|truncatewords:12 }}</td>
+                            <td><span class="simple-badge badge-expense">{{ expense.category.name }}</span></td>
+                            <td><small>{{ expense.bank_account.name|default:"N/A" }}</small></td>
                             <td>
                                 {% for tag in expense.tags.all %}
-                                <span class="badge me-1" style="background-color: {{ tag.color }}; color: white; font-size: 0.7rem;">{{ tag.name }}</span>
+                                <span class="simple-tag" style="border-color: {{ tag.color }}; color: {{ tag.color }};">{{ tag.name }}</span>
                                 {% empty %}
-                                <span class="text-muted small">-</span>
+                                <span class="text-muted">—</span>
                                 {% endfor %}
                             </td>
-                            <td class="text-end text-danger fw-bold">${{ expense.amount|floatformat:2 }}</td>
+                            <td class="text-end"><strong class="text-danger">${{ expense.amount|floatformat:2 }}</strong></td>
                             <td class="text-center">
-                                <a href="{% url 'expense_update' expense.pk %}" class="btn btn-sm btn-outline-primary" title="Edit">
+                                <a href="{% url 'expense_update' expense.pk %}" class="btn-icon" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <a href="{% url 'expense_clone' expense.pk %}" class="btn btn-sm btn-outline-success" title="Clone">
+                                <a href="{% url 'expense_clone' expense.pk %}" class="btn-icon" title="Clone">
                                     <i class="bi bi-files"></i>
                                 </a>
-                                <a href="{% url 'expense_delete' expense.pk %}" class="btn btn-sm btn-outline-danger" title="Delete">
+                                <a href="{% url 'expense_delete' expense.pk %}" class="btn-icon text-danger" title="Delete">
                                     <i class="bi bi-trash"></i>
                                 </a>
                             </td>
@@ -228,6 +228,67 @@
 
 {% block extra_css %}
 <style>
+.clean-table {
+    font-size: 0.875rem;
+}
+.clean-table thead {
+    background-color: #fafafa;
+    border-bottom: 2px solid #e0e0e0;
+}
+.clean-table thead th {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: #666;
+    padding: 10px;
+    border: none;
+}
+.clean-table tbody tr {
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.15s;
+}
+.clean-table tbody tr:hover {
+    background-color: #fafafa;
+}
+.clean-table tbody td {
+    padding: 10px;
+    vertical-align: middle;
+}
+.simple-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+.badge-expense {
+    background-color: #fee;
+    color: #d63031;
+}
+.simple-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    border: 1px solid;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    margin-right: 3px;
+    font-weight: 500;
+}
+.btn-icon {
+    display: inline-block;
+    padding: 4px 8px;
+    color: #666;
+    text-decoration: none;
+    border-radius: 3px;
+    transition: all 0.15s;
+}
+.btn-icon:hover {
+    background-color: #f0f0f0;
+    color: #333;
+}
+.btn-icon.text-danger:hover {
+    background-color: #fee;
+    color: #d63031;
+}
 .tag-badge-selected {
     background-color: #0d6efd !important;
     color: white !important;
@@ -235,22 +296,18 @@
     padding: 0.25rem 0.5rem;
     border-radius: 0.25rem;
 }
-
 .dropdown-toggle::after {
     position: absolute;
     right: 0.75rem;
     top: 50%;
     transform: translateY(-50%);
 }
-
 .tag-item {
     transition: background-color 0.2s;
 }
-
 .tag-item.selected {
     background-color: #e7f3ff !important;
 }
-
 .tag-item.selected label {
     color: #0d6efd;
     font-weight: 500;

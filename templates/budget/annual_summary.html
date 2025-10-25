@@ -184,22 +184,8 @@ document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
             </div>
             <div class="card-body py-2">
                 {% if income_by_category %}
-                <div class="row">
-                    <div class="col-7">
-                        <div style="height: 220px; position: relative;">
-                            <canvas id="incomeChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="col-5">
-                        <div style="max-height: 220px; overflow-y: auto;">
-                            {% for item in income_by_category %}
-                            <div class="d-flex justify-content-between mb-1" style="font-size: 0.8125rem;">
-                                <span>{{ item.category__name|default:"Uncategorized" }}</span>
-                                <strong class="text-success">${{ item.total|floatformat:2 }}</strong>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="incomeChart"></canvas>
                 </div>
                 {% else %}
                 <p class="text-muted text-center py-3">No income data for this year</p>
@@ -216,22 +202,8 @@ document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
             </div>
             <div class="card-body py-2">
                 {% if expense_by_category %}
-                <div class="row">
-                    <div class="col-7">
-                        <div style="height: 220px; position: relative;">
-                            <canvas id="expenseChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="col-5">
-                        <div style="max-height: 220px; overflow-y: auto;">
-                            {% for item in expense_by_category %}
-                            <div class="d-flex justify-content-between mb-1" style="font-size: 0.8125rem;">
-                                <span>{{ item.category__name|default:"Uncategorized" }}</span>
-                                <strong class="text-danger">${{ item.total|floatformat:2 }}</strong>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="expenseChart"></canvas>
                 </div>
                 {% else %}
                 <p class="text-muted text-center py-3">No expense data for this year</p>
@@ -246,46 +218,146 @@ document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
     <div class="card-header bg-white py-2">
         <h5 class="mb-0" style="font-size: 0.875rem;"><i class="bi bi-calendar-month"></i> Monthly Breakdown</h5>
     </div>
-    <div class="card-body py-2">
+    <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover table-sm">
+            <table class="table table-hover modern-breakdown-table mb-0">
                 <thead>
-                    <tr style="font-size: 0.8125rem;">
+                    <tr>
                         <th>Month</th>
                         <th class="text-end">Income</th>
                         <th class="text-end">Expenses</th>
                         <th class="text-end">Net Savings</th>
                         <th class="text-end">Investments</th>
+                        <th class="text-center">Status</th>
                     </tr>
                 </thead>
-                <tbody style="font-size: 0.8125rem;">
+                <tbody>
                     {% for data in monthly_data %}
                     <tr>
-                        <td><strong>{{ data.month }}</strong></td>
-                        <td class="text-end text-success">${{ data.income|floatformat:2 }}</td>
-                        <td class="text-end text-danger">${{ data.expense|floatformat:2 }}</td>
-                        <td class="text-end {% if data.savings >= 0 %}text-success{% else %}text-danger{% endif %}">
-                            ${{ data.savings|floatformat:2 }}
+                        <td class="month-cell">
+                            <strong>{{ data.month }}</strong>
                         </td>
-                        <td class="text-end text-primary"><strong>${{ data.investment|floatformat:2 }}</strong></td>
+                        <td class="text-end income-cell">
+                            <span class="amount-badge income-badge">${{ data.income|floatformat:2 }}</span>
+                        </td>
+                        <td class="text-end expense-cell">
+                            <span class="amount-badge expense-badge">${{ data.expense|floatformat:2 }}</span>
+                        </td>
+                        <td class="text-end savings-cell">
+                            <span class="amount-badge {% if data.savings >= 0 %}savings-positive-badge{% else %}savings-negative-badge{% endif %}">
+                                ${{ data.savings|floatformat:2 }}
+                            </span>
+                        </td>
+                        <td class="text-end investment-cell">
+                            <span class="amount-badge investment-badge">${{ data.investment|floatformat:2 }}</span>
+                        </td>
+                        <td class="text-center status-cell">
+                            {% if data.savings >= 0 %}
+                                <i class="bi bi-check-circle-fill text-success" title="Positive savings"></i>
+                            {% else %}
+                                <i class="bi bi-dash-circle-fill text-danger" title="Deficit"></i>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
-                <tfoot style="font-size: 0.8125rem;">
-                    <tr class="fw-bold">
-                        <td>Total</td>
-                        <td class="text-end text-success">${{ total_income|floatformat:2 }}</td>
-                        <td class="text-end text-danger">${{ total_expense|floatformat:2 }}</td>
-                        <td class="text-end {% if annual_savings >= 0 %}text-success{% else %}text-danger{% endif %}">
-                            ${{ annual_savings|floatformat:2 }}
+                <tfoot>
+                    <tr class="total-row">
+                        <td><strong>TOTAL</strong></td>
+                        <td class="text-end">
+                            <strong class="text-success">${{ total_income|floatformat:2 }}</strong>
                         </td>
-                        <td class="text-end text-primary">${{ total_investments|floatformat:2 }}</td>
+                        <td class="text-end">
+                            <strong class="text-danger">${{ total_expense|floatformat:2 }}</strong>
+                        </td>
+                        <td class="text-end">
+                            <strong class="{% if annual_savings >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                ${{ annual_savings|floatformat:2 }}
+                            </strong>
+                        </td>
+                        <td class="text-end">
+                            <strong class="text-primary">${{ total_investments|floatformat:2 }}</strong>
+                        </td>
+                        <td></td>
                     </tr>
                 </tfoot>
             </table>
         </div>
     </div>
 </div>
+
+<style>
+.modern-breakdown-table {
+    font-size: 0.875rem;
+}
+.modern-breakdown-table thead {
+    background: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 2px solid #dee2e6;
+}
+.modern-breakdown-table thead th {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #495057;
+    padding: 12px 16px;
+    border: none;
+}
+.modern-breakdown-table tbody tr {
+    transition: all 0.2s ease;
+    border-bottom: 1px solid #f0f0f0;
+}
+.modern-breakdown-table tbody tr:hover {
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.modern-breakdown-table tbody td {
+    padding: 14px 16px;
+    vertical-align: middle;
+}
+.month-cell strong {
+    color: #212529;
+    font-size: 0.9rem;
+}
+.amount-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+.income-badge {
+    background-color: #d1f4e0;
+    color: #198754;
+}
+.expense-badge {
+    background-color: #ffe0e0;
+    color: #dc3545;
+}
+.savings-positive-badge {
+    background-color: #d1f4e0;
+    color: #198754;
+}
+.savings-negative-badge {
+    background-color: #ffe0e0;
+    color: #dc3545;
+}
+.investment-badge {
+    background-color: #e0ebff;
+    color: #0d6efd;
+}
+.status-cell i {
+    font-size: 1.1rem;
+}
+.modern-breakdown-table tfoot {
+    border-top: 2px solid #dee2e6;
+    background-color: #f8f9fa;
+}
+.modern-breakdown-table tfoot .total-row td {
+    padding: 14px 16px;
+    font-size: 0.9rem;
+}
+</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -348,7 +420,7 @@ function generateColors(count, baseHue, saturation = 70, lightness = 70) {
 const incomeCtx = document.getElementById('incomeChart').getContext('2d');
 const incomeCount = {{ income_by_category|length }};
 new Chart(incomeCtx, {
-    type: 'pie',
+    type: 'doughnut',
     data: {
         labels: [{% for item in income_by_category %}'{{ item.category__name|default:"Uncategorized" }}'{% if not forloop.last %},{% endif %}{% endfor %}],
         datasets: [{
@@ -358,10 +430,33 @@ new Chart(incomeCtx, {
     },
     options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
         plugins: {
             legend: {
-                position: 'bottom'
+                position: 'right',
+                labels: {
+                    padding: 15,
+                    font: {
+                        size: 11
+                    },
+                    generateLabels: function(chart) {
+                        const data = chart.data;
+                        if (data.labels.length && data.datasets.length) {
+                            return data.labels.map((label, i) => {
+                                const value = data.datasets[0].data[i];
+                                const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return {
+                                    text: `${label}: $${value.toFixed(2)} (${percentage}%)`,
+                                    fillStyle: data.datasets[0].backgroundColor[i],
+                                    hidden: false,
+                                    index: i
+                                };
+                            });
+                        }
+                        return [];
+                    }
+                }
             },
             tooltip: {
                 callbacks: {
@@ -371,6 +466,9 @@ new Chart(incomeCtx, {
                             label += ': ';
                         }
                         label += '$' + context.parsed.toFixed(2);
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((context.parsed / total) * 100).toFixed(1);
+                        label += ` (${percentage}%)`;
                         return label;
                     }
                 }
@@ -385,7 +483,7 @@ new Chart(incomeCtx, {
 const expenseCtx = document.getElementById('expenseChart').getContext('2d');
 const expenseCount = {{ expense_by_category|length }};
 new Chart(expenseCtx, {
-    type: 'pie',
+    type: 'doughnut',
     data: {
         labels: [{% for item in expense_by_category %}'{{ item.category__name|default:"Uncategorized" }}'{% if not forloop.last %},{% endif %}{% endfor %}],
         datasets: [{
@@ -395,10 +493,33 @@ new Chart(expenseCtx, {
     },
     options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
         plugins: {
             legend: {
-                position: 'bottom'
+                position: 'right',
+                labels: {
+                    padding: 15,
+                    font: {
+                        size: 11
+                    },
+                    generateLabels: function(chart) {
+                        const data = chart.data;
+                        if (data.labels.length && data.datasets.length) {
+                            return data.labels.map((label, i) => {
+                                const value = data.datasets[0].data[i];
+                                const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return {
+                                    text: `${label}: $${value.toFixed(2)} (${percentage}%)`,
+                                    fillStyle: data.datasets[0].backgroundColor[i],
+                                    hidden: false,
+                                    index: i
+                                };
+                            });
+                        }
+                        return [];
+                    }
+                }
             },
             tooltip: {
                 callbacks: {
@@ -408,6 +529,9 @@ new Chart(expenseCtx, {
                             label += ': ';
                         }
                         label += '$' + context.parsed.toFixed(2);
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((context.parsed / total) * 100).toFixed(1);
+                        label += ` (${percentage}%)`;
                         return label;
                     }
                 }

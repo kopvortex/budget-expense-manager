@@ -76,7 +76,7 @@
     <div class="card-body">
         {% if transfers %}
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table clean-table">
                 <thead>
                     <tr>
                         <th>Date</th>
@@ -90,29 +90,27 @@
                 <tbody>
                     {% for transfer in transfers %}
                     <tr>
-                        <td>{{ transfer.date }}</td>
+                        <td><small class="text-muted">{{ transfer.date|date:"M d, Y" }}</small></td>
                         <td>
-                            <i class="bi bi-bank text-danger"></i> {{ transfer.from_account.name }}
+                            <span class="simple-badge badge-from">
+                                <i class="bi bi-arrow-up me-1"></i>{{ transfer.from_account.name }}
+                            </span>
                         </td>
                         <td>
-                            <i class="bi bi-bank text-success"></i> {{ transfer.to_account.name }}
+                            <span class="simple-badge badge-to">
+                                <i class="bi bi-arrow-down me-1"></i>{{ transfer.to_account.name }}
+                            </span>
                         </td>
-                        <td>{{ transfer.description|default:"—"|truncatewords:10 }}</td>
-                        <td class="text-end fw-bold">${{ transfer.amount|floatformat:2 }}</td>
+                        <td>{{ transfer.description|default:"—"|truncatewords:14 }}</td>
+                        <td class="text-end"><strong class="text-primary">${{ transfer.amount|floatformat:2 }}</strong></td>
                         <td class="text-center">
-                            <a href="{% url 'transfer_update' transfer.pk %}" 
-                               class="btn btn-sm btn-outline-primary" 
-                               title="Edit Transfer">
+                            <a href="{% url 'transfer_update' transfer.pk %}" class="btn-icon" title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <a href="{% url 'transfer_clone' transfer.pk %}" 
-                               class="btn btn-sm btn-outline-success" 
-                               title="Clone Transfer">
+                            <a href="{% url 'transfer_clone' transfer.pk %}" class="btn-icon" title="Clone">
                                 <i class="bi bi-files"></i>
                             </a>
-                            <a href="{% url 'transfer_delete' transfer.pk %}" 
-                               class="btn btn-sm btn-outline-danger" 
-                               title="Delete Transfer">
+                            <a href="{% url 'transfer_delete' transfer.pk %}" class="btn-icon text-danger" title="Delete">
                                 <i class="bi bi-trash"></i>
                             </a>
                         </td>
@@ -130,5 +128,66 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.clean-table {
+    font-size: 0.875rem;
+}
+.clean-table thead {
+    background-color: #fafafa;
+    border-bottom: 2px solid #e0e0e0;
+}
+.clean-table thead th {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: #666;
+    padding: 10px;
+    border: none;
+}
+.clean-table tbody tr {
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.15s;
+}
+.clean-table tbody tr:hover {
+    background-color: #fafafa;
+}
+.clean-table tbody td {
+    padding: 10px;
+    vertical-align: middle;
+}
+.simple-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+.badge-from {
+    background-color: #fee;
+    color: #d63031;
+}
+.badge-to {
+    background-color: #efe;
+    color: #00b894;
+}
+.btn-icon {
+    display: inline-block;
+    padding: 4px 8px;
+    color: #666;
+    text-decoration: none;
+    border-radius: 3px;
+    transition: all 0.15s;
+}
+.btn-icon:hover {
+    background-color: #f0f0f0;
+    color: #333;
+}
+.btn-icon.text-danger:hover {
+    background-color: #fee;
+    color: #d63031;
+}
+</style>
 {% endblock %}
 

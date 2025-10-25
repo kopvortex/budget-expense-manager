@@ -1753,6 +1753,103 @@ def monthly_summary(request):
     # Get all user tags for filter dropdown
     all_tags = Tag.objects.filter(user=request.user).order_by('name')
     
+    # Calculate previous month data for comparison
+    if month == 1:
+        prev_month = 12
+        prev_year = year - 1
+    else:
+        prev_month = month - 1
+        prev_year = year
+    
+    # Previous month totals
+    prev_income_query = Income.objects.filter(user=request.user, date__year=prev_year, date__month=prev_month)
+    if tag_filters:
+        prev_income_query = prev_income_query.filter(tags__id__in=tag_filters).distinct()
+    prev_total_income = prev_income_query.aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+    
+    prev_expense_query = Expense.objects.filter(user=request.user, date__year=prev_year, date__month=prev_month)
+    if tag_filters:
+        prev_expense_query = prev_expense_query.filter(tags__id__in=tag_filters).distinct()
+    prev_total_expense = prev_expense_query.aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+    
+    prev_savings = prev_total_income - prev_total_expense
+    
+    # Calculate changes
+    income_change = total_income - prev_total_income
+    expense_change = total_expense - prev_total_expense
+    savings_change = savings - prev_savings
+    
+    # Calculate percentage changes
+    income_change_pct = (income_change / prev_total_income * 100) if prev_total_income > 0 else 0
+    expense_change_pct = (expense_change / prev_total_expense * 100) if prev_total_expense > 0 else 0
+    savings_change_pct = (savings_change / prev_savings * 100) if prev_savings != 0 else 0
+    
+    # Get biggest category changes
+    from django.db.models import F, Value
+    from django.db.models.functions import Coalesce
+    
+    # Current month expenses by category
+    current_expenses = {}
+    for item in expense_by_category:
+        current_expenses[item['category__name'] or 'Uncategorized'] = item['total']
+    
+    # Previous month expenses by category
+    prev_expenses_query = Expense.objects.filter(
+        user=request.user,
+        date__year=prev_year,
+        date__month=prev_month
+    )
+    if tag_filters:
+        prev_expenses_query = prev_expenses_query.filter(tags__id__in=tag_filters).distinct()
+    prev_expense_by_cat = prev_expenses_query.values('category__name').annotate(total=Sum('amount')).order_by('-total')
+    
+    prev_expenses = {}
+    for item in prev_expense_by_cat:
+        prev_expenses[item['category__name'] or 'Uncategorized'] = item['total']
+    
+    # Calculate category changes
+    category_changes = []
+    all_categories = set(current_expenses.keys()) | set(prev_expenses.keys())
+    for category in all_categories:
+        current = current_expenses.get(category, Decimal('0'))
+        previous = prev_expenses.get(category, Decimal('0'))
+        change = current - previous
+        change_pct = (change / previous * 100) if previous > 0 else (100 if current > 0 else 0)
+        
+        if abs(change) > 0:  # Only include categories with changes
+            category_changes.append({
+                'category': category,
+                'current': current,
+                'previous': previous,
+                'change': change,
+                'change_abs': abs(change),
+                'change_pct': change_pct
+            })
+    
+    # Sort by absolute change amount (biggest changes first)
+    category_changes.sort(key=lambda x: abs(x['change']), reverse=True)
+    top_category_changes = category_changes[:5]  # Top 5 changes
+    
+    prev_month_name = datetime(prev_year, prev_month, 1).strftime('%B %Y')
+    
+    # Calculate budget status counts
+    budget_on_track = 0
+    budget_warning = 0
+    budget_over = 0
+    
+    for item in expense_by_category:
+        if item['budget']:
+            spent = item['total']
+            budget = item['budget']
+            pct_used = (spent / budget * 100) if budget > 0 else 0
+            
+            if pct_used >= 100:
+                budget_over += 1
+            elif pct_used > 80:
+                budget_warning += 1
+            else:
+                budget_on_track += 1
+    
     context = {
         'year': year,
         'month': month,
@@ -1769,6 +1866,22 @@ def monthly_summary(request):
         'min_date': min_date,
         'all_tags': all_tags,
         'selected_tags': [int(t) for t in tag_filters if t],  # Convert to integers
+        # Comparison data
+        'prev_month_name': prev_month_name,
+        'prev_total_income': prev_total_income,
+        'prev_total_expense': prev_total_expense,
+        'prev_savings': prev_savings,
+        'income_change': income_change,
+        'expense_change': expense_change,
+        'savings_change': savings_change,
+        'income_change_pct': income_change_pct,
+        'expense_change_pct': expense_change_pct,
+        'savings_change_pct': savings_change_pct,
+        'top_category_changes': top_category_changes,
+        # Budget status counts
+        'budget_on_track': budget_on_track,
+        'budget_warning': budget_warning,
+        'budget_over': budget_over,
     }
     
     return render(request, 'budget/monthly_summary.html', context)
