@@ -189,20 +189,26 @@ class ExpenseForm(forms.ModelForm):
 
 
 class MonthlyBudgetForm(forms.ModelForm):
-    # Override month field to accept YYYY-MM format
-    month = forms.CharField(
-        widget=forms.DateInput(attrs={
-            'class': 'form-control', 
-            'type': 'month',
-            'min': '2020-01',
-            'max': '2025-12'
-        }),
-        help_text='Select the month for this budget (2020-2025)'
+    # Separate month and year fields for better UX
+    budget_month = forms.ChoiceField(
+        choices=[
+            (1, 'January'), (2, 'February'), (3, 'March'), (4, 'April'),
+            (5, 'May'), (6, 'June'), (7, 'July'), (8, 'August'),
+            (9, 'September'), (10, 'October'), (11, 'November'), (12, 'December')
+        ],
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        label='Month'
+    )
+    
+    budget_year = forms.ChoiceField(
+        choices=[(year, str(year)) for year in range(2020, 2031)],
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        label='Year'
     )
     
     class Meta:
         model = MonthlyBudget
-        fields = ['category', 'month', 'budgeted_amount']
+        fields = ['category', 'budgeted_amount']
         widgets = {
             'category': forms.Select(attrs={'class': 'form-control'}),
             'budgeted_amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
@@ -214,21 +220,43 @@ class MonthlyBudgetForm(forms.ModelForm):
         if user:
             self.fields['category'].queryset = Category.objects.filter(user=user, category_type='expense')
         
-        # Format the month field for display in YYYY-MM format when editing
+        # Pre-populate month and year fields when editing
         if self.instance and self.instance.pk and self.instance.month:
-            self.fields['month'].initial = self.instance.month.strftime('%Y-%m')
+            self.fields['budget_month'].initial = self.instance.month.month
+            self.fields['budget_year'].initial = self.instance.month.year
+        else:
+            # Default to current month and year for new budgets
+            from datetime import date
+            today = date.today()
+            self.fields['budget_month'].initial = today.month
+            self.fields['budget_year'].initial = today.year
     
-    def clean_month(self):
-        """Convert YYYY-MM format to date object (first day of month)"""
-        month_str = self.cleaned_data.get('month')
-        if month_str:
+    def clean(self):
+        """Combine month and year into a date object"""
+        cleaned_data = super().clean()
+        month = cleaned_data.get('budget_month')
+        year = cleaned_data.get('budget_year')
+        
+        if month and year:
             try:
-                # Parse YYYY-MM and convert to first day of month
-                date_obj = datetime.strptime(month_str, '%Y-%m')
-                return date_obj.date()
-            except ValueError:
-                raise forms.ValidationError('Enter a valid date in YYYY-MM format.')
-        raise forms.ValidationError('This field is required.')
+                from datetime import date
+                # Create date object for the first day of the selected month
+                month_date = date(int(year), int(month), 1)
+                cleaned_data['month'] = month_date
+            except (ValueError, TypeError) as e:
+                raise forms.ValidationError('Invalid month or year selection.')
+        else:
+            raise forms.ValidationError('Please select both month and year.')
+        
+        return cleaned_data
+    
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        # Set the month from cleaned data
+        instance.month = self.cleaned_data.get('month')
+        if commit:
+            instance.save()
+        return instance
 
 
 class TransferForm(forms.ModelForm):

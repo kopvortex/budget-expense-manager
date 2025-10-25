@@ -72,6 +72,12 @@ def dashboard(request):
     
     monthly_savings = monthly_income - monthly_expense
     
+    # Calculate savings rate (percentage of income saved)
+    if monthly_income > 0:
+        savings_rate = (monthly_savings / monthly_income) * 100
+    else:
+        savings_rate = 0
+    
     # Monthly investments (income to investment accounts + transfers to investment accounts)
     investment_accounts = BankAccount.objects.filter(
         user=user,
@@ -407,6 +413,7 @@ def dashboard(request):
         'monthly_income': monthly_income,
         'monthly_expense': monthly_expense,
         'monthly_savings': monthly_savings,
+        'savings_rate': savings_rate,
         'monthly_investments': monthly_investments,
         'annual_income': annual_income,
         'annual_expense': annual_expense,
@@ -1426,31 +1433,45 @@ def budget_copy_previous(request):
             
             if not previous_budgets.exists():
                 messages.error(request, f'No budgets found for {previous_date.strftime("%B %Y")}')
-                return redirect(f'budget_list?year={year}&month={month}')
+                return redirect(f'/budgets/?year={year}&month={month}')
             
-            # Check if target month already has budgets
-            existing_budgets = MonthlyBudget.objects.filter(
+            # Get categories that already have budgets in target month
+            existing_categories = MonthlyBudget.objects.filter(
                 user=request.user,
                 month=target_date
-            )
+            ).values_list('category_id', flat=True)
             
-            if existing_budgets.exists():
-                messages.warning(request, f'Budgets already exist for {target_date.strftime("%B %Y")}')
-                return redirect(f'budget_list?year={year}&month={month}')
-            
-            # Copy budgets
+            # Smart merge: Only copy budgets for categories that don't exist yet
             copied_count = 0
-            for prev_budget in previous_budgets:
-                MonthlyBudget.objects.create(
-                    user=request.user,
-                    category=prev_budget.category,
-                    month=target_date,
-                    budgeted_amount=prev_budget.budgeted_amount
-                )
-                copied_count += 1
+            skipped_count = 0
             
-            messages.success(request, f'Successfully copied {copied_count} budget(s) from {previous_date.strftime("%B %Y")}')
-            return redirect(f'budget_list?year={year}&month={month}')
+            for prev_budget in previous_budgets:
+                if prev_budget.category_id in existing_categories:
+                    # Category already has a budget for this month, skip it
+                    skipped_count += 1
+                else:
+                    # Category doesn't exist yet, copy it
+                    MonthlyBudget.objects.create(
+                        user=request.user,
+                        category=prev_budget.category,
+                        month=target_date,
+                        budgeted_amount=prev_budget.budgeted_amount
+                    )
+                    copied_count += 1
+            
+            # Show appropriate message based on results
+            if copied_count > 0 and skipped_count > 0:
+                messages.success(
+                    request, 
+                    f'Successfully copied {copied_count} budget(s) from {previous_date.strftime("%B %Y")}. '
+                    f'Skipped {skipped_count} category(ies) that already have budgets.'
+                )
+            elif copied_count > 0:
+                messages.success(request, f'Successfully copied {copied_count} budget(s) from {previous_date.strftime("%B %Y")}')
+            else:
+                messages.info(request, f'All categories already have budgets for {target_date.strftime("%B %Y")}. Nothing to copy.')
+            
+            return redirect(f'/budgets/?year={year}&month={month}')
     
     return redirect('budget_list')
 
@@ -1647,6 +1668,12 @@ def monthly_summary(request):
     # Savings
     savings = total_income - total_expense
     
+    # Calculate savings rate (percentage of income saved)
+    if total_income > 0:
+        savings_rate = (savings / total_income) * 100
+    else:
+        savings_rate = 0
+    
     # Calculate total investments (income + transfers to investment accounts)
     investments_from_income = Income.objects.filter(
         user=request.user,
@@ -1735,6 +1762,7 @@ def monthly_summary(request):
         'total_income': total_income,
         'total_expense': total_expense,
         'savings': savings,
+        'savings_rate': savings_rate,
         'total_investments': total_investments,
         'account_balances': account_balances,
         'total_balance': total_balance,
